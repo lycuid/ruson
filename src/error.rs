@@ -1,3 +1,27 @@
+pub trait RusonResult {
+    type Item;
+    fn or_exit(self) -> Self::Item;
+    fn or_exit_with(self, exit_code: i32) -> Self::Item;
+}
+
+impl<T, E: std::fmt::Display> RusonResult for Result<T, E> {
+    type Item = T;
+
+    fn or_exit(self) -> Self::Item {
+        self.or_exit_with(1)
+    }
+
+    fn or_exit_with(self, exit_code: i32) -> Self::Item {
+        match self {
+            Ok(t) => t,
+            Err(error) => {
+                eprintln!("ruson: {}", error);
+                std::process::exit(exit_code);
+            }
+        }
+    }
+}
+
 pub trait ErrorString {
     const SUBSTR_WIDTH: usize;
 

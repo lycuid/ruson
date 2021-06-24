@@ -12,7 +12,8 @@ pub struct JsonParser {
     pub pointer: Pointer,
 }
 
-pub type ParseResult<'a> = Result<&'a mut JsonParser, (Pointer, JsonErrorType)>;
+pub type ErrorTuple = (JsonErrorType, Pointer);
+pub type ParseResult<'a> = Result<&'a mut JsonParser, ErrorTuple>;
 
 impl JsonParser {
     const WS: [char; 2] = [' ', '\t'];
@@ -22,7 +23,7 @@ impl JsonParser {
         self.trim_front()
             .next_token()
             .and_then(|this| Ok(this.token.take().unwrap()))
-            .or_else(|(ptr, error_type)| {
+            .or_else(|(error_type, ptr)| {
                 let position = self.position(&ptr);
                 let string = self
                     .string
@@ -280,8 +281,8 @@ impl JsonParser {
         self
     }
 
-    fn error(&self, error_type: JsonErrorType) -> (Pointer, JsonErrorType) {
-        (self.pointer, error_type)
+    fn error(&self, error_type: JsonErrorType) -> ErrorTuple {
+        (error_type, self.pointer)
     }
 
     fn set_token(&mut self, token: JsonToken) -> &mut Self {

@@ -25,7 +25,7 @@ mod json_tests {
             json_parser = JsonParser::new(xs);
             match &json_parser.null() {
                 Ok(_) => assert!(false),
-                Err((_, ref error_type)) => {
+                Err((ref error_type, _)) => {
                     assert_eq!(error_type, &JsonErrorType::SyntaxError)
                 }
             };
@@ -50,7 +50,7 @@ mod json_tests {
             json_parser = JsonParser::new(xs);
             match &json_parser.boolean() {
                 Ok(_) => assert!(false),
-                Err((_, error_type)) => {
+                Err((error_type, _)) => {
                     assert_eq!(error_type, &JsonErrorType::SyntaxError)
                 }
             };
@@ -85,7 +85,7 @@ mod json_tests {
             json_parser = JsonParser::new(number);
             match &json_parser.number() {
                 Ok(_) => assert!(false),
-                Err((_, error_type)) => {
+                Err((error_type, _)) => {
                     assert_eq!(error_type, &JsonErrorType::SyntaxError)
                 }
             };
@@ -127,7 +127,7 @@ mod json_tests {
             json_parser = JsonParser::new(string);
             match &json_parser.string() {
                 Ok(_) => assert!(false),
-                Err((_, error_type)) => {
+                Err((error_type, _)) => {
                     assert_eq!(error_type, &JsonErrorType::SyntaxError)
                 }
             };
@@ -167,7 +167,7 @@ mod json_tests {
             json_parser = JsonParser::new(xs);
             match &json_parser.array() {
                 Ok(_) => assert!(false),
-                Err((_, error_type)) => assert_eq!(error_type, err),
+                Err((error_type, _)) => assert_eq!(error_type, err),
             };
         }
     }
@@ -234,7 +234,7 @@ mod json_tests {
             json_parser = JsonParser::new(xs);
             match &json_parser.object() {
                 Ok(_) => assert!(false),
-                Err((_, error_type)) => assert_eq!(error_type, err),
+                Err((error_type, _)) => assert_eq!(error_type, err),
             };
         }
     }
