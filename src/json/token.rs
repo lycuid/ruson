@@ -1,5 +1,30 @@
-use crate::{query::Query, utils::*};
+use crate::query::Query;
 use std::{collections::HashMap, fmt};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum JsonProperty {
+    // Root json tree.
+    Root,
+    /// equivalent to `jsonObject.prop`
+    Dot(String),
+    /// equivalent to `jsonObject["prop"]`
+    Bracket(String),
+    /// equivalent to `jsonArray[0]`
+    Index(usize),
+}
+
+impl std::fmt::Display for JsonProperty {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::Root => {
+                write!(f, "{}", format!("{:?}", self).to_ascii_lowercase())
+            }
+            Self::Dot(string) => write!(f, ".{}", string),
+            Self::Bracket(string) => write!(f, "[\"{}\"]", string),
+            Self::Index(index) => write!(f, "[{}]", index),
+        }
+    }
+}
 
 #[derive(Clone, PartialEq)]
 pub enum JsonToken {
@@ -12,8 +37,9 @@ pub enum JsonToken {
 }
 
 impl JsonToken {
-    /// This is used for extracting a 'JsonToken' value that matches the given
-    /// query, from the current 'JsonToken'.
+    /// This is used for extracting a [JsonToken](enum.JsonToken.html) value
+    /// that matches the given [Query](/ruson/query/struct.Query.html),
+    /// from the current object.
     pub fn apply(&self, query: &Query) -> Result<Self, String> {
         let mut token = self;
         let mut properties = query.properties.iter();
@@ -21,6 +47,7 @@ impl JsonToken {
         let maybe_orphan = loop {
             if let Some(prop) = properties.next() {
                 match prop {
+                    JsonProperty::Root => {}
                     JsonProperty::Dot(string)
                     | JsonProperty::Bracket(string) => {
                         match token {
@@ -59,7 +86,7 @@ impl JsonToken {
         if let Some(prop) = maybe_orphan {
             Err(format!("query structure doesn't match (near '{}').", prop))
         } else {
-            Ok(token.to_owned())
+            Ok(token.clone())
         }
     }
 }
@@ -80,97 +107,6 @@ impl fmt::Debug for JsonToken {
 impl fmt::Display for JsonToken {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Debug::fmt(self, f)
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum JsonProperty {
-    Dot(String),     // obj.prop
-    Bracket(String), // obj["prop"]
-    Index(usize),    // array[0]
-}
-
-type MaybeJsonProperty = Option<(JsonProperty, Pointer)>;
-
-impl JsonProperty {
-    pub fn parse_dot_prop(xs: &Stack, xi: &Pointer) -> MaybeJsonProperty {
-        let parse_dot = || parse_char('.', xs, xi).and_then(|_| Some(xi + 1));
-
-        let parse_property = |ptr| {
-            let (string, new_ptr) =
-                parse_while(xs, &ptr, |&ch| ch != '.' && ch != '[');
-            if string.is_empty() {
-                None
-            } else {
-                Some((string, new_ptr))
-            }
-        };
-
-        parse_dot()
-            .and_then(parse_property)
-            .and_then(|(string, ptr)| Some((JsonProperty::Dot(string), ptr)))
-    }
-
-    pub fn parse_bracket_prop(xs: &Stack, xi: &Pointer) -> MaybeJsonProperty {
-        let parse_bracket_open = || {
-            parse_string(r#"[""#, xs, xi).and_then(|(_, new_ptr)| Some(new_ptr))
-        };
-
-        let parse_property = |ptr| {
-            let (string, new_ptr) = parse_while(xs, &ptr, |&ch| ch != '"');
-            if string.is_empty() {
-                None
-            } else {
-                Some((string, new_ptr))
-            }
-        };
-
-        let parse_bracket_close = |(string, ptr)| {
-            parse_string(r#""]"#, xs, &ptr)
-                .and_then(|(_, new_ptr)| Some((string, new_ptr)))
-        };
-
-        parse_bracket_open()
-            .and_then(parse_property)
-            .and_then(parse_bracket_close)
-            .and_then(|(string, ptr)| {
-                Some((JsonProperty::Bracket(string), ptr))
-            })
-    }
-
-    pub fn parse_index_prop(xs: &Stack, xi: &Pointer) -> MaybeJsonProperty {
-        let parse_bracket_open =
-            || parse_char('[', xs, xi).and_then(|_| Some(xi + 1));
-
-        let parse_index_number = |ptr| {
-            let (string, new_ptr) =
-                parse_while(xs, &ptr, |&ch| ch.is_digit(10));
-
-            if let Ok(number) = string.parse() {
-                Some((number, new_ptr))
-            } else {
-                None
-            }
-        };
-
-        let parse_bracket_close = |(number, ptr)| {
-            parse_char(']', &xs, &ptr).and_then(|_| Some((number, ptr + 1)))
-        };
-
-        parse_bracket_open()
-            .and_then(parse_index_number)
-            .and_then(parse_bracket_close)
-            .and_then(|(number, ptr)| Some((JsonProperty::Index(number), ptr)))
-    }
-}
-
-impl std::fmt::Display for JsonProperty {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Dot(string) => write!(f, ".{}", string),
-            Self::Bracket(string) => write!(f, "[\"{}\"]", string),
-            Self::Index(index) => write!(f, "[{}]", index),
-        }
     }
 }
 

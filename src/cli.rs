@@ -80,12 +80,8 @@ impl<'a> Cli<'a> {
             Some(format!("{}", self.clone()));
     }
 
-    fn empty_query_message(&self, name: &str) -> String {
-        vec![
-            format!("'{}' cannot be empty.", name),
-            format!("Try '{} --help' for more information.", self.name),
-        ]
-        .join("\n")
+    fn empty_option_message(&self, name: &str) -> String {
+        format!("'{}' cannot be empty.", name)
     }
 
     pub fn parse(
@@ -131,7 +127,7 @@ impl<'a> Cli<'a> {
                             .and_then(|next| {
                                 options.insert(name, next).and(Some(()))
                             })
-                            .ok_or(self.empty_query_message(name))?;
+                            .ok_or(self.empty_option_message(name))?;
 
                         continue 'mainloop;
                     }

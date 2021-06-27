@@ -1,4 +1,4 @@
-use crate::{error::ErrorString, utils::Position};
+use crate::{error::ErrorString, parser::Position};
 
 #[derive(Debug, PartialEq)]
 pub enum JsonErrorType {

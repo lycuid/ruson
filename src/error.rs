@@ -15,7 +15,11 @@ impl<T, E: std::fmt::Display> RusonResult for Result<T, E> {
         match self {
             Ok(t) => t,
             Err(error) => {
-                eprintln!("ruson: {}", error);
+                let error_string = format!("{}", error);
+                eprintln!("{}", error_string.errorfmt());
+                if [2, 128].contains(&exit_code) {
+                    eprintln!("Try 'ruson --help' for more information.");
+                }
                 std::process::exit(exit_code);
             }
         }
@@ -27,6 +31,7 @@ pub trait ErrorString {
 
     fn shorten(&self, start: usize) -> Self;
     fn uncamelized(&self) -> Self;
+    fn errorfmt(&self) -> Self;
 }
 
 impl ErrorString for String {
@@ -59,5 +64,9 @@ impl ErrorString for String {
         }
 
         new_string
+    }
+
+    fn errorfmt(&self) -> Self {
+        format!("ruson: {}", self)
     }
 }

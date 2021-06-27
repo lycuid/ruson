@@ -16,15 +16,13 @@ check:
 clean:
 	$(CARGO) clean
 
-test: fmt src
+test: fmt
 	$(CARGO) test
 
-benchmark: build
+benchmark: build $(BIN)
 	$(SHELL) ./benchmark/run.sh $(BENCHMARK_URLS)
 
 readme:
 	sed -e '/{{benchmarks}}/ {' \
 		-e 'r'<(make clean benchmark --quiet CARGOFLAGS='--quiet') \
 		-e 'd' -e '}' README.tmpl > README
-
-.PHONY: fmt clean benchmark

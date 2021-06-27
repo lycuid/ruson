@@ -4,7 +4,7 @@ mod query_tests {
 
     #[test]
     fn success_query() {
-        let string = r#"data[1].array[0]["property"].another_property["another_array"][90]"#;
+        let string = r#"root[1].array[0]["property"].another_property["another_array"][90]"#;
         let props = vec![
             JsonProperty::Index(1),
             JsonProperty::Dot(String::from("array")),
@@ -19,9 +19,4 @@ mod query_tests {
         assert!(query.is_ok());
         assert_eq!(query.unwrap().properties, props);
     }
-
-    // #[test]
-    // fn error_query() {
-    //     todo!();
-    // }
 }

@@ -1,7 +1,7 @@
 use ruson::{
     cli::{Cli, CliFlag, CliOption},
     error::RusonResult,
-    json::{token::Jsonfmt, JsonParser},
+    json::{token::Jsonfmt, JsonLexer},
     query::Query,
 };
 use std::{
@@ -26,7 +26,7 @@ fn main() -> Result<(), String> {
 
     rusoncli.add_option(CliOption {
         name: "query",
-        default: Some(String::from("data")),
+        default: Some(String::from("root")),
         flag: CliFlag {
             short: "-q",
             long: Some("--query"),
@@ -34,7 +34,7 @@ fn main() -> Result<(), String> {
             description: vec![
                 "Query for extracting desired 'json'",
                 "subtree. The root 'json' tree must",
-                "be referred as 'data'",
+                "be referred as 'root'",
             ],
         },
     });
@@ -78,12 +78,13 @@ fn main() -> Result<(), String> {
     let json_query = Query::new(query_string).or_exit_with(128);
 
     // filesize 4.2 MiB: parsing 'jsontoken' ~ 155ms.
-    let json_token = JsonParser::new(json_string.as_str())
-        .parse()
+    let json_token = JsonLexer::new(json_string.as_str())
+        .tokenize()
         .or_exit()
-        // filesize 4.2 MiB: applying 'query' on 'jsontoken' ~ 50ms.
+        // filesize 4.2 MiB: applying 'query' on 'jsontoken' and returning
+        // the cloned extracted 'jsontoken' ~ 50ms.
         .apply(&json_query)
-        .or_exit_with(128);
+        .or_exit();
 
     // filesize 4.2 MiB: printing to stdout ~ 60ms.
     match clioptions
@@ -96,7 +97,7 @@ fn main() -> Result<(), String> {
         "pretty" => println!("{}", Jsonfmt::Pretty(&json_token)),
         "table" => println!("{}", Jsonfmt::Table(&json_token)),
         _ => {
-            Err::<(), &str>("Invalid '--format' value").or_exit();
+            Err::<(), &str>("Invalid '--format' value").or_exit_with(128);
         }
     }
 

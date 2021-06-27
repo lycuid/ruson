@@ -1,4 +1,4 @@
-use crate::{error::ErrorString, utils::Pointer};
+use crate::{error::ErrorString, parser::Pointer};
 
 #[derive(Debug, PartialEq)]
 pub enum QueryErrorType {
