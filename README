@@ -1,0 +1,44 @@
+RUSON
+======
+A Commandline tool for parsing 'json' object.
+
+BENCHMARKS
+======
+Benchmarking ./benchmark/10_small.json
+filesize: 120K | lines: 2166 | characters: 122068
+
+real	0m0.009s
+user	0m0.004s
+sys	0m0.004s
+
+Benchmarking ./benchmark/20_medium.json
+filesize: 2.4M | lines: 79473 | characters: 2432123
+
+real	0m0.143s
+user	0m0.120s
+sys	0m0.020s
+
+Benchmarking ./benchmark/30_large.json
+filesize: 4.6M | lines: 155432 | characters: 4768489
+
+real	0m0.263s
+user	0m0.222s
+sys	0m0.037s
+
+json url: https://api.github.com/repos/rust-lang/rust
+filesize: 8.0K | lines: 123 | characters: 6381
+
+real	0m0.003s
+user	0m0.002s
+sys	0m0.000s
+
+json url: https://api.github.com/repos/rust-lang/rust/commits
+filesize: 140K | lines: 2452 | characters: 141505
+
+real	0m0.009s
+user	0m0.000s
+sys	0m0.008s
+
+
+======
+licence GPLv3.0 (https://www.gnu.org/licenses/gpl-3.0.en.html)
