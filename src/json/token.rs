@@ -37,9 +37,10 @@ pub enum JsonToken {
 }
 
 impl JsonToken {
-    /// This is used for extracting a [JsonToken](enum.JsonToken.html) value
-    /// that matches the given [Query](/ruson/query/struct.Query.html),
-    /// from the current object.
+    /// This is used for extracting a `JsonToken` value
+    /// that matches the given [`Query`], from the current object.
+    ///
+    /// [`Query`]: /ruson/query/struct.Query.html
     pub fn apply(&self, query: &Query) -> Result<Self, String> {
         let mut token = self;
         let mut properties = query.properties.iter();

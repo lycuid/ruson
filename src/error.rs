@@ -1,25 +1,32 @@
-pub trait RusonResult {
-    type Item;
-    fn or_exit(self) -> Self::Item;
-    fn or_exit_with(self, exit_code: i32) -> Self::Item;
+pub trait RusonResult<T> {
+    fn unwrap_or_exit(self) -> T;
+    fn unwrap_or_exit_with(self, exit_code: i32) -> T;
 }
 
-impl<T, E: std::fmt::Display> RusonResult for Result<T, E> {
-    type Item = T;
-
-    fn or_exit(self) -> Self::Item {
-        self.or_exit_with(1)
+impl<T, E: std::fmt::Display> RusonResult<T> for Result<T, E> {
+    fn unwrap_or_exit(self) -> T {
+        self.unwrap_or_exit_with(1)
     }
 
-    fn or_exit_with(self, exit_code: i32) -> Self::Item {
+    fn unwrap_or_exit_with(self, exit_code: i32) -> T {
         match self {
             Ok(t) => t,
-            Err(error) => {
-                let error_string = format!("{}", error);
-                eprintln!("{}", error_string.errorfmt());
-                if [2, 128].contains(&exit_code) {
-                    eprintln!("Try 'ruson --help' for more information.");
-                }
+            Err(displayable) => {
+                let exit_string = format!("{}", displayable).errorfmt();
+
+                match exit_code {
+                    0 => {
+                        println!("{}", exit_string);
+                    }
+                    2 => {
+                        eprintln!("{}", exit_string);
+                        eprintln!("Try 'ruson --help' for more information.");
+                    }
+                    _ => {
+                        eprintln!("{}", exit_string);
+                    }
+                };
+
                 std::process::exit(exit_code);
             }
         }

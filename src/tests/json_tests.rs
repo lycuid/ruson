@@ -57,6 +57,12 @@ mod json_tests {
             ("40.2", JsonToken::Number(40.2)),
             ("40.", JsonToken::Number(40.0)),
             ("40 ", JsonToken::Number(40.0)),
+            ("-2.12e+12", JsonToken::Number(-2.12e+12)),
+            ("-2.12e-12", JsonToken::Number(-2.12e-12)),
+            ("-2.12e12", JsonToken::Number(-2.12e12)),
+            ("2.12E+12", JsonToken::Number(2.12e+12)),
+            ("2.12E-12", JsonToken::Number(2.12E-12)),
+            ("2.12E12", JsonToken::Number(2.12E12)),
         ]
         .iter()
         {
@@ -68,7 +74,16 @@ mod json_tests {
     #[test]
     fn error_number() {
         let mut json_lexer: JsonLexer;
-        for number in [".10", "-.10"].iter() {
+        for number in [
+            ".10",
+            "-.10",
+            "4.873e+-23",
+            "4.873e-+23",
+            "4.873E+-23",
+            "4.873E-+23",
+        ]
+        .iter()
+        {
             json_lexer = JsonLexer::new(number);
             match &json_lexer.number() {
                 Ok(_) => assert!(false),

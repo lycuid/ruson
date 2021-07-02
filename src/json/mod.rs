@@ -81,13 +81,13 @@ impl JsonLexer {
         })
     }
 
-    /// calls `next()` and converts it to [ParseResult](type.ParseResult.html).
+    /// calls `next()` and converts it to 1ParseResult`.
     pub fn next_token(&mut self) -> ParseResult {
         self.next()
             .unwrap_or(Err(self.error(JsonErrorType::SyntaxError)))
     }
 
-    /// try parsing [JsonToken::Null](token/enum.JsonToken.html#variant.Null).
+    /// try parsing [`JsonToken::Null`](token/enum.JsonToken.html#variant.Null).
     pub fn null(&mut self) -> ParseResult {
         self.parser
             .match_string("null")
@@ -95,7 +95,7 @@ impl JsonLexer {
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [JsonToken::Boolean](token/enum.JsonToken.html#variant.Boolean).
+    /// try parsing [`JsonToken::Boolean`](token/enum.JsonToken.html#variant.Boolean).
     pub fn boolean(&mut self) -> ParseResult {
         let parse_true = self.parser.match_string("true");
         let parse_false = || self.parser.match_string("false");
@@ -106,11 +106,11 @@ impl JsonLexer {
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [JsonToken::Number](token/enum.JsonToken.html#variant.Number).
+    /// try parsing [`JsonToken::Number`](token/enum.JsonToken.html#variant.Number).
     pub fn number(&mut self) -> ParseResult {
-        let maybe_number = self.parser.parse_int().and_then(|n| Some(n as f32));
+        let maybe_float = self.parser.parse_int().and_then(|n| Some(n as f32));
 
-        let maybe_float = if let Some(f) = maybe_number {
+        let maybe_decimal = maybe_float.and_then(|f| {
             // parse decimal point.
             self.parser
                 .match_char('.')
@@ -122,9 +122,8 @@ impl JsonLexer {
                 .and_then(|total_zeroes| {
                     self.parser.parse_int().and_then(|number| {
                         if number >= 0 {
-                            let digits = no_of_digits(number) + total_zeroes;
-                            let divisor = 10i32.pow(digits as u32) as f32;
-                            let decimal = number as f32 / divisor;
+                            let digits = total_digits(number) + total_zeroes;
+                            let decimal = number as f32 / 10f32.powi(digits);
 
                             Some(f + if f >= 0. { decimal } else { -decimal })
                         } else {
@@ -134,16 +133,36 @@ impl JsonLexer {
                 })
                 // any of the above fails, then return original number.
                 .or(Some(f))
-        } else {
-            None
-        };
+        });
 
-        maybe_float
-            .and_then(|float| Some(JsonToken::Number(float)))
+        let maybe_exponent = maybe_decimal.and_then(|f| {
+            // if 'e' or 'E' parsed, then try parsing '[sign]int'.
+            if self
+                .parser
+                .match_char('e')
+                .or_else(|| self.parser.match_char('E'))
+                .is_some()
+            {
+                let exponent = if self.parser.match_char('+').is_some() {
+                    self.parser.parse_uint().and_then(|n| Some(n as i32))
+                } else {
+                    self.parser.parse_int()
+                };
+
+                exponent.and_then(|exp| format!("{}e{}", f, exp).parse().ok())
+            } else {
+                // return previously parsed float, if 'e' or 'E' not present
+                // immediately after.
+                Some(f)
+            }
+        });
+
+        maybe_exponent
+            .and_then(|number| Some(JsonToken::Number(number)))
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [JsonToken::QString](token/enum.JsonToken.html#variant.QString).
+    /// try parsing [`JsonToken::QString`](token/enum.JsonToken.html#variant.QString).
     pub fn qstring(&mut self) -> ParseResult {
         self.try_char('"')?;
 
@@ -160,7 +179,7 @@ impl JsonLexer {
             .and_then(|_| Ok(JsonToken::QString(string)))
     }
 
-    /// try parsing [JsonToken::Array](token/enum.JsonToken.html#variant.Array).
+    /// try parsing [`JsonToken::Array`](token/enum.JsonToken.html#variant.Array).
     pub fn array(&mut self) -> ParseResult {
         self.try_char('[')?;
 
@@ -192,7 +211,7 @@ impl JsonLexer {
             .and_then(|_| Ok(JsonToken::Array(array)))
     }
 
-    /// try parsing [JsonToken::Object](token/enum.JsonToken.html#variant.Object).
+    /// try parsing [`JsonToken::Object`](token/enum.JsonToken.html#variant.Object).
     pub fn object(&mut self) -> ParseResult {
         self.try_char('{')?;
 
@@ -274,14 +293,14 @@ impl JsonPropertyLexer {
         }
     }
 
-    /// try parsing [JsonProperty::Root](token/enum.JsonProperty.html#variant.Root).
+    /// try parsing [`JsonProperty::Root`](token/enum.JsonProperty.html#variant.Root).
     pub fn root(&mut self) -> Option<JsonProperty> {
         self.parser
             .match_string(format!("{}", JsonProperty::Root).as_str())
             .and(Some(JsonProperty::Root))
     }
 
-    /// try parsing [JsonProperty::Dot](token/enum.JsonProperty.html#variant.Dot).
+    /// try parsing [`JsonProperty::Dot`](token/enum.JsonProperty.html#variant.Dot).
     pub fn dotproperty(&mut self) -> Option<JsonProperty> {
         self.parser.match_char('.')?;
 
@@ -293,7 +312,7 @@ impl JsonPropertyLexer {
         Some(JsonProperty::Dot(string))
     }
 
-    /// try parsing [JsonProperty::Bracket](token/enum.JsonProperty.html#variant.Bracket).
+    /// try parsing [`JsonProperty::Bracket`](token/enum.JsonProperty.html#variant.Bracket).
     pub fn bracketproperty(&mut self) -> Option<JsonProperty> {
         self.parser.match_string("[\"")?;
 
@@ -307,7 +326,7 @@ impl JsonPropertyLexer {
             .and_then(|_| Some(JsonProperty::Bracket(string)))
     }
 
-    /// try parsing [JsonProperty::Index](token/enum.JsonProperty.html#variant.Index).
+    /// try parsing [`JsonProperty::Index`](token/enum.JsonProperty.html#variant.Index).
     pub fn arrayindex(&mut self) -> Option<JsonProperty> {
         self.parser.match_char('[')?;
 
@@ -343,7 +362,7 @@ impl Iterator for JsonPropertyLexer {
     }
 }
 
-fn no_of_digits(mut n: i32) -> i32 {
+fn total_digits(mut n: i32) -> i32 {
     let mut digits = 0;
     while n > 0 {
         n /= 10;

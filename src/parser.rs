@@ -34,7 +34,7 @@ impl Parser {
     }
 
     pub fn peek(&self) -> Option<&char> {
-        self.stack.get(self.pointer)
+        self.peek_at(self.pointer)
     }
 
     pub fn peek_at(&self, ptr: Pointer) -> Option<&char> {
@@ -44,7 +44,7 @@ impl Parser {
     pub fn match_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
         let string: String = self.stack[self.pointer..]
             .iter()
-            .take_while(|c| (f)(c))
+            .take_while(|&ch| (f)(ch))
             .collect();
         self.pointer += string.chars().count();
         string
@@ -77,13 +77,14 @@ impl Parser {
         Some(String::from(ys))
     }
 
+    pub fn parse_uint(&mut self) -> Option<u32> {
+        self.match_while(|&ch| ch.is_digit(10)).parse().ok()
+    }
+
     pub fn parse_int(&mut self) -> Option<i32> {
         let mul = self.match_char('-').and(Some(-1)).unwrap_or(1);
 
-        self.match_while(|&ch| ch.is_digit(10))
-            .parse::<i32>()
-            .and_then(|n| Ok(n * mul))
-            .ok()
+        self.parse_uint().and_then(|n| Some(n as i32 * mul))
     }
 
     pub fn get_string(&self) -> String {

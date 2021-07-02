@@ -56,18 +56,18 @@ fn main() -> Result<(), String> {
     let mut clioptions: HashMap<&str, String> = HashMap::new();
     let json_filepath = rusoncli
         .parse(&mut cliflags, &mut clioptions)
-        .or_exit_with(2);
+        .unwrap_or_exit();
 
     let json_string = if let Some(filepath) = json_filepath {
         std::fs::read_to_string(filepath.clone())
             .or_else(|err| Err(format!("'{}' {}", filepath, err)))
-            .or_exit()
+            .unwrap_or_exit()
     } else {
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
             .or(Err("cannot read from stdin."))
-            .or_exit();
+            .unwrap_or_exit();
         buffer
     };
 
@@ -75,16 +75,16 @@ fn main() -> Result<(), String> {
         .get("query")
         .ok_or(internal_error.as_str())?
         .as_str();
-    let json_query = Query::new(query_string).or_exit_with(128);
+    let json_query = Query::new(query_string).unwrap_or_exit_with(2);
 
     // filesize 4.2 MiB: parsing 'jsontoken' ~ 155ms.
     let json_token = JsonLexer::new(json_string.as_str())
         .tokenize()
-        .or_exit()
+        .unwrap_or_exit()
         // filesize 4.2 MiB: applying 'query' on 'jsontoken' and returning
         // the cloned extracted 'jsontoken' ~ 50ms.
         .apply(&json_query)
-        .or_exit();
+        .unwrap_or_exit();
 
     // filesize 4.2 MiB: printing to stdout ~ 60ms.
     match clioptions
@@ -97,7 +97,7 @@ fn main() -> Result<(), String> {
         "pretty" => println!("{}", Jsonfmt::Pretty(&json_token)),
         "table" => println!("{}", Jsonfmt::Table(&json_token)),
         _ => {
-            Err::<(), &str>("Invalid '--format' value").or_exit_with(128);
+            Err::<(), &str>("Invalid '--format' value").unwrap_or_exit_with(2);
         }
     }
 
