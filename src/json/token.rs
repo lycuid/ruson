@@ -1,10 +1,9 @@
-use crate::query::Query;
+use super::query::JsonQuery;
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonProperty {
-    // Root json tree.
-    Root,
+    Data,
     /// equivalent to `jsonObject.prop`
     Dot(String),
     /// equivalent to `jsonObject["prop"]`
@@ -16,7 +15,7 @@ pub enum JsonProperty {
 impl std::fmt::Display for JsonProperty {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Root => {
+            Self::Data => {
                 write!(f, "{}", format!("{:?}", self).to_ascii_lowercase())
             }
             Self::Dot(string) => write!(f, ".{}", string),
@@ -40,15 +39,15 @@ impl JsonToken {
     /// This is used for extracting a `JsonToken` value
     /// that matches the given [`Query`], from the current object.
     ///
-    /// [`Query`]: /ruson/query/struct.Query.html
-    pub fn apply(&self, query: &Query) -> Result<Self, String> {
+    /// [`Query`]: /ruson/json/query/struct.Query.html
+    pub fn apply(&self, query: &JsonQuery) -> Result<Self, String> {
         let mut token = self;
         let mut properties = query.properties.iter();
 
         let maybe_orphan = loop {
             if let Some(prop) = properties.next() {
                 match prop {
-                    JsonProperty::Root => {}
+                    JsonProperty::Data => {}
                     JsonProperty::Dot(string)
                     | JsonProperty::Bracket(string) => {
                         match token {
@@ -120,8 +119,8 @@ pub enum Jsonfmt<'a> {
 impl<'a> std::fmt::Display for Jsonfmt<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Raw(token) => writeln!(f, "{}", token),
-            Self::Pretty(token) => writeln!(f, "{:#}", token),
+            Self::Raw(token) => write!(f, "{}", token),
+            Self::Pretty(token) => write!(f, "{:#}", token),
             Self::Table(token) => match token {
                 JsonToken::Array(array) => {
                     for value in array {
@@ -135,7 +134,7 @@ impl<'a> std::fmt::Display for Jsonfmt<'a> {
                     }
                     Ok(())
                 }
-                _ => writeln!(f, "{}", token),
+                _ => write!(f, "{}", token),
             },
         }
     }

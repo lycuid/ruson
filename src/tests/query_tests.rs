@@ -1,22 +1,20 @@
-#[cfg(test)]
-mod query_tests {
-    use crate::{json::token::JsonProperty, query::Query};
+use crate::json::{query::JsonQuery, token::JsonProperty};
 
-    #[test]
-    fn success_query() {
-        let string = r#"root[1].array[0]["property"].another_property["another_array"][90]"#;
-        let props = vec![
-            JsonProperty::Index(1),
-            JsonProperty::Dot(String::from("array")),
-            JsonProperty::Index(0),
-            JsonProperty::Bracket(String::from("property")),
-            JsonProperty::Dot(String::from("another_property")),
-            JsonProperty::Bracket(String::from("another_array")),
-            JsonProperty::Index(90),
-        ];
+#[test]
+fn success_query() {
+    let string =
+        r#"data[1].array[0]["property"].another_property["another_array"][90]"#;
+    let props = vec![
+        JsonProperty::Index(1),
+        JsonProperty::Dot("array".into()),
+        JsonProperty::Index(0),
+        JsonProperty::Bracket("property".into()),
+        JsonProperty::Dot("another_property".into()),
+        JsonProperty::Bracket("another_array".into()),
+        JsonProperty::Index(90),
+    ];
 
-        let query = Query::new(string);
-        assert!(query.is_ok());
-        assert_eq!(query.unwrap().properties, props);
-    }
+    let query = JsonQuery::new(string);
+    assert!(query.is_ok());
+    assert_eq!(query.unwrap().properties, props);
 }

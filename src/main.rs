@@ -1,8 +1,11 @@
 use ruson::{
     cli::{Cli, CliFlag, CliOption},
     error::RusonResult,
-    json::{token::Jsonfmt, JsonLexer},
-    query::Query,
+    json::{
+        query::JsonQuery,
+        token::{JsonProperty, Jsonfmt},
+        JsonTokenLexer,
+    },
 };
 use std::{
     collections::HashMap,
@@ -11,43 +14,43 @@ use std::{
 
 fn main() -> Result<(), String> {
     let app_name: String = std::env::args().take(1).collect();
+    let app_version = "v1.0.0";
     let internal_error = format!("{} internal error.", app_name);
 
-    let mut rusoncli = Cli::new(app_name.as_str());
+    let mut rusoncli = Cli::new(&app_name, &app_version);
 
     rusoncli.set_description(vec![
-        "This script is used for serializing and extracting sub",
-        "trees from json compliant syntax text.",
+        "Extract sub tree from valid 'json' text.".into()
     ]);
     rusoncli.set_footer(vec![
-        "For examples, refer to the manpage. For detailed",
-        "documentation Visit: https://github.com/lycuid/ruson#readme",
+        "For examples, refer to the manpage. For detailed".into(),
+        "documentation Visit: https://github.com/lycuid/ruson#readme".into(),
     ]);
 
     rusoncli.add_option(CliOption {
         name: "query",
-        default: Some(String::from("root")),
+        default: Some("root".into()),
         flag: CliFlag {
             short: "-q",
             long: Some("--query"),
             exit_with_text: None,
             description: vec![
-                "Query for extracting desired 'json'",
-                "subtree. The root 'json' tree must",
-                "be referred as 'root'",
+                "Query for extracting desired 'json'".into(),
+                "subtree. The root 'json' tree must".into(),
+                format!("be referred as '{}'", JsonProperty::Data),
             ],
         },
     });
     rusoncli.add_option(CliOption {
         name: "format",
-        default: Some(String::from("raw")),
+        default: Some("raw".into()),
         flag: CliFlag {
             short: "-f",
             long: Some("--format"),
             exit_with_text: None,
             description: vec![
-                "Output print format for 'json'.",
-                "valid formats: (json|pretty|table)",
+                "Output format for parsed 'json'.".into(),
+                "valid FORMAT: json, pretty, table".into(),
             ],
         },
     });
@@ -55,6 +58,8 @@ fn main() -> Result<(), String> {
     let mut cliflags: Vec<String> = Vec::new();
     let mut clioptions: HashMap<&str, String> = HashMap::new();
     let json_filepath = rusoncli
+        // this may exit with error code '0', when any flag with
+        // `Some(exit_with_text)` gets parsed.
         .parse(&mut cliflags, &mut clioptions)
         .unwrap_or_exit();
 
@@ -71,25 +76,22 @@ fn main() -> Result<(), String> {
         buffer
     };
 
-    let query_string = clioptions
-        .get("query")
-        .ok_or(internal_error.as_str())?
-        .as_str();
-    let json_query = Query::new(query_string).unwrap_or_exit_with(2);
+    let query_string = clioptions.get("query").ok_or(&internal_error)?;
+    let json_query = JsonQuery::new(query_string).unwrap_or_exit_with(2);
 
     // filesize 4.2 MiB: parsing 'jsontoken' ~ 155ms.
-    let json_token = JsonLexer::new(json_string.as_str())
+    let json_token = JsonTokenLexer::new(&json_string)
         .tokenize()
         .unwrap_or_exit()
         // filesize 4.2 MiB: applying 'query' on 'jsontoken' and returning
-        // the cloned extracted 'jsontoken' ~ 50ms.
+        // the cloned subtree 'jsontoken' ~ 50ms.
         .apply(&json_query)
         .unwrap_or_exit();
 
     // filesize 4.2 MiB: printing to stdout ~ 60ms.
     match clioptions
         .get("format")
-        .ok_or(internal_error.as_str())?
+        .ok_or(&internal_error)?
         .to_ascii_lowercase()
         .as_str()
     {

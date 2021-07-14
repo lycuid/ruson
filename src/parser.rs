@@ -74,7 +74,7 @@ impl Parser {
         }
         self.pointer = next_index;
 
-        Some(String::from(ys))
+        Some(ys.into())
     }
 
     pub fn parse_uint(&mut self) -> Option<u32> {
