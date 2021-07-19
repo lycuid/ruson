@@ -1,3 +1,4 @@
+//! Text parsing utility struct.
 pub type Stack = Vec<char>;
 pub type Pointer = usize;
 

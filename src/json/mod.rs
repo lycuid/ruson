@@ -1,4 +1,6 @@
+//! Json parsing and processing utilities.
 pub mod error;
+pub mod formatter;
 pub mod query;
 pub mod token;
 
@@ -43,45 +45,22 @@ impl JsonTokenLexer {
         })
     }
 
-    /// calls `next()` and converts it to [`ParseResult`](type.ParseResult.html).
+    /// calls `next()` and unwraps to [`ParseResult`](ParseResult).
     pub fn next_token(&mut self) -> ParseResult {
         self.next()
             .unwrap_or(Err(self.error(JsonErrorType::SyntaxError)))
     }
 
-    pub fn trim_front(&mut self) -> &mut Self {
-        self.parser
-            .match_while(|c| Self::WS.contains(c) || Self::EOL.contains(c));
-        self
-    }
-
-    /// This is used only in case of erroring out (backing up ptr to error position).
-    pub fn untrim_front(&mut self) -> &mut Self {
-        self.parser.pointer -= 1;
-
-        while let Some(ch) = self.parser.peek() {
-            if (Self::WS.contains(ch) || Self::EOL.contains(ch))
-                && self.parser.pointer > 0
-            {
-                self.parser.pointer -= 1;
-            } else {
-                break;
-            }
-        }
-
-        self
-    }
-
-    /// try parsing [`JsonToken::Null`](token/enum.JsonToken.html#variant.Null).
-    pub fn null(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::Null`](JsonToken::Null).
+    pub fn next_null(&mut self) -> ParseResult {
         self.parser
             .match_string("null")
             .and_then(|_| Some(JsonToken::Null))
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [`JsonToken::Boolean`](token/enum.JsonToken.html#variant.Boolean).
-    pub fn boolean(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::Boolean`](JsonToken::Boolean).
+    pub fn next_boolean(&mut self) -> ParseResult {
         let parse_true = self.parser.match_string("true");
         let parse_false = || self.parser.match_string("false");
 
@@ -91,8 +70,8 @@ impl JsonTokenLexer {
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [`JsonToken::Number`](token/enum.JsonToken.html#variant.Number).
-    pub fn number(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::Number`](JsonToken::Number).
+    pub fn next_number(&mut self) -> ParseResult {
         let maybe_float = self.parser.parse_int().and_then(|n| Some(n as f32));
 
         let maybe_decimal = maybe_float.and_then(|f| {
@@ -147,8 +126,8 @@ impl JsonTokenLexer {
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
-    /// try parsing [`JsonToken::QString`](token/enum.JsonToken.html#variant.QString).
-    pub fn qstring(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::QString`](JsonToken::QString).
+    pub fn next_qstring(&mut self) -> ParseResult {
         self.match_char('"')?;
 
         let mut escaped = false;
@@ -164,8 +143,8 @@ impl JsonTokenLexer {
             .and_then(|_| Ok(JsonToken::QString(string)))
     }
 
-    /// try parsing [`JsonToken::Array`](token/enum.JsonToken.html#variant.Array).
-    pub fn array(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::Array`](JsonToken::Array).
+    pub fn next_array(&mut self) -> ParseResult {
         self.match_char('[')?;
 
         let mut array = Vec::new();
@@ -193,14 +172,14 @@ impl JsonTokenLexer {
             .and_then(|_| Ok(JsonToken::Array(array)))
     }
 
-    /// try parsing [`JsonToken::Object`](token/enum.JsonToken.html#variant.Object).
-    pub fn object(&mut self) -> ParseResult {
+    /// try parsing [`JsonToken::Object`](JsonToken::Object).
+    pub fn next_object(&mut self) -> ParseResult {
         self.match_char('{')?;
 
         let mut hashmap = std::collections::HashMap::new();
         let mut string_key = String::new();
 
-        let mut json_key = self.trim_front().qstring().ok();
+        let mut json_key = self.trim_front().next_qstring().ok();
 
         while {
             // unwrap JsonToken key -> string key.
@@ -235,7 +214,7 @@ impl JsonTokenLexer {
             json_key = if self.trim_front().match_char(',').is_ok() {
                 // comma needs to be followed by a string.
                 self.trim_front()
-                    .qstring()
+                    .next_qstring()
                     .and_then(|token| Ok(Some(token)))
                     .or_else(|_| {
                         Err(self
@@ -250,6 +229,29 @@ impl JsonTokenLexer {
         self.trim_front()
             .match_char('}')
             .and_then(|_| Ok(JsonToken::Object(hashmap)))
+    }
+
+    pub fn trim_front(&mut self) -> &mut Self {
+        self.parser
+            .match_while(|c| Self::WS.contains(c) || Self::EOL.contains(c));
+        self
+    }
+
+    /// This is used only in case of erroring out (backing up ptr to error position).
+    pub fn untrim_front(&mut self) -> &mut Self {
+        self.parser.pointer -= 1;
+
+        while let Some(ch) = self.parser.peek() {
+            if (Self::WS.contains(ch) || Self::EOL.contains(ch))
+                && self.parser.pointer > 0
+            {
+                self.parser.pointer -= 1;
+            } else {
+                break;
+            }
+        }
+
+        self
     }
 
     fn match_char(&mut self, c: char) -> Result<&mut Self, ParseError> {
@@ -269,12 +271,12 @@ impl Iterator for JsonTokenLexer {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self.parser.peek() {
-            Some('-') | Some('0'..='9') => Some(self.number()),
-            Some('t') | Some('f') => Some(self.boolean()),
-            Some('"') => Some(self.qstring()),
-            Some('n') => Some(self.null()),
-            Some('[') => Some(self.array()),
-            Some('{') => Some(self.object()),
+            Some('-') | Some('0'..='9') => Some(self.next_number()),
+            Some('t') | Some('f') => Some(self.next_boolean()),
+            Some('"') => Some(self.next_qstring()),
+            Some('n') => Some(self.next_null()),
+            Some('[') => Some(self.next_array()),
+            Some('{') => Some(self.next_object()),
             _ => return None,
         }
     }
@@ -291,7 +293,7 @@ impl JsonPropertyLexer {
         }
     }
 
-    /// try parsing [`JsonProperty::Dot`](token/enum.JsonProperty.html#variant.Dot).
+    /// try parsing [`JsonProperty::Dot`](JsonProperty::Dot).
     pub fn dotproperty(&mut self) -> Option<JsonProperty> {
         self.parser.match_char('.')?;
 
@@ -303,7 +305,7 @@ impl JsonPropertyLexer {
         Some(JsonProperty::Dot(string))
     }
 
-    /// try parsing [`JsonProperty::Bracket`](token/enum.JsonProperty.html#variant.Bracket).
+    /// try parsing [`JsonProperty::Bracket`](JsonProperty::Bracket).
     pub fn bracketproperty(&mut self) -> Option<JsonProperty> {
         self.parser.match_string("[\"")?;
 
@@ -317,7 +319,7 @@ impl JsonPropertyLexer {
             .and_then(|_| Some(JsonProperty::Bracket(string)))
     }
 
-    /// try parsing [`JsonProperty::Index`](token/enum.JsonProperty.html#variant.Index).
+    /// try parsing [`JsonProperty::Index`](JsonProperty::Index).
     pub fn arrayindex(&mut self) -> Option<JsonProperty> {
         self.parser.match_char('[')?;
 

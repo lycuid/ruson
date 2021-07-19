@@ -3,7 +3,8 @@ use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum JsonProperty {
-    Data,
+    /// Refering to the `root` json tree.
+    Root,
     /// equivalent to `jsonObject.prop`
     Dot(String),
     /// equivalent to `jsonObject["prop"]`
@@ -15,7 +16,7 @@ pub enum JsonProperty {
 impl std::fmt::Display for JsonProperty {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::Data => {
+            Self::Root => {
                 write!(f, "{}", format!("{:?}", self).to_ascii_lowercase())
             }
             Self::Dot(string) => write!(f, ".{}", string),
@@ -37,17 +38,15 @@ pub enum JsonToken {
 
 impl JsonToken {
     /// This is used for extracting a `JsonToken` value
-    /// that matches the given [`Query`], from the current object.
-    ///
-    /// [`Query`]: /ruson/json/query/struct.Query.html
+    /// that matches the given [`JsonQuery`](JsonQuery), from the current object.
     pub fn apply(&self, query: &JsonQuery) -> Result<Self, String> {
         let mut token = self;
-        let mut properties = query.properties.iter();
+        let mut properties = query.properties();
 
         let maybe_orphan = loop {
             if let Some(prop) = properties.next() {
                 match prop {
-                    JsonProperty::Data => {}
+                    JsonProperty::Root => {}
                     JsonProperty::Dot(string)
                     | JsonProperty::Bracket(string) => {
                         match token {
@@ -91,51 +90,21 @@ impl JsonToken {
     }
 }
 
-impl fmt::Debug for JsonToken {
+impl fmt::Display for JsonToken {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Null => write!(f, "null"),
             Self::Boolean(value) => write!(f, "{}", value),
             Self::Number(value) => write!(f, "{}", value),
             Self::QString(value) => write!(f, "\"{}\"", value),
-            Self::Array(array) => f.debug_list().entries(array.iter()).finish(),
-            Self::Object(map) => f.debug_map().entries(map.iter()).finish(),
+            Self::Array(array) => write!(f, "{:?}", array),
+            Self::Object(map) => write!(f, "{:?}", map),
         }
     }
 }
 
-impl fmt::Display for JsonToken {
+impl fmt::Debug for JsonToken {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
-    }
-}
-
-pub enum Jsonfmt<'a> {
-    Raw(&'a JsonToken),
-    Pretty(&'a JsonToken),
-    Table(&'a JsonToken),
-}
-
-impl<'a> std::fmt::Display for Jsonfmt<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self {
-            Self::Raw(token) => write!(f, "{}", token),
-            Self::Pretty(token) => write!(f, "{:#}", token),
-            Self::Table(token) => match token {
-                JsonToken::Array(array) => {
-                    for value in array {
-                        writeln!(f, "{}", value)?;
-                    }
-                    Ok(())
-                }
-                JsonToken::Object(map) => {
-                    for (key, value) in map {
-                        writeln!(f, "{}\t{}", key, value)?;
-                    }
-                    Ok(())
-                }
-                _ => write!(f, "{}", token),
-            },
-        }
+        fmt::Display::fmt(self, f)
     }
 }

@@ -1,3 +1,4 @@
+//! Error formatting utilities.
 pub trait RusonResult<T> {
     fn unwrap_or_exit(self) -> T;
     fn unwrap_or_exit_with(self, exit_code: i32) -> T;
@@ -19,8 +20,9 @@ impl<T, E: std::fmt::Display> RusonResult<T> for Result<T, E> {
                         println!("{}", exit_string);
                     }
                     2 => {
+                        let bin = std::env::args().next().unwrap();
                         eprintln!("{}", exit_string);
-                        eprintln!("Try 'ruson --help' for more information.");
+                        eprintln!("Try '{} --help' for more information.", bin);
                     }
                     _ => {
                         eprintln!("{}", exit_string);
@@ -37,7 +39,7 @@ pub trait ErrorString {
     const SUBSTR_WIDTH: usize;
 
     fn shorten(&self, start: usize) -> Self;
-    fn uncamelized(&self) -> Self;
+    fn uncamelize(&self) -> Self;
     fn errorfmt(&self) -> Self;
 }
 
@@ -57,7 +59,7 @@ impl ErrorString for String {
         }
     }
 
-    fn uncamelized(&self) -> Self {
+    fn uncamelize(&self) -> Self {
         let mut new_string = String::new();
         let mut chars = self.chars();
 
@@ -74,6 +76,6 @@ impl ErrorString for String {
     }
 
     fn errorfmt(&self) -> Self {
-        format!("ruson: {}", self)
+        format!("{}: {}", std::env::args().next().unwrap(), self)
     }
 }

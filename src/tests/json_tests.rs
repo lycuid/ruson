@@ -3,7 +3,7 @@ use crate::json::{error::JsonErrorType, token::JsonToken, JsonTokenLexer};
 #[test]
 fn success_null() {
     let mut json_lexer = JsonTokenLexer::new("null");
-    assert_eq!(json_lexer.null().unwrap(), JsonToken::Null);
+    assert_eq!(json_lexer.next_null().unwrap(), JsonToken::Null);
 }
 
 #[test]
@@ -11,7 +11,7 @@ fn error_null() {
     let mut json_lexer: JsonTokenLexer;
     for xs in ["Null", "NULL"].iter() {
         json_lexer = JsonTokenLexer::new(xs);
-        match &json_lexer.null() {
+        match &json_lexer.next_null() {
             Ok(_) => assert!(false),
             Err((ref error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -23,10 +23,13 @@ fn error_null() {
 #[test]
 fn success_bool() {
     let mut json_lexer = JsonTokenLexer::new("true");
-    assert_eq!(json_lexer.boolean().unwrap(), JsonToken::Boolean(true));
+    assert_eq!(json_lexer.next_boolean().unwrap(), JsonToken::Boolean(true));
 
     let mut json_lexer = JsonTokenLexer::new("false");
-    assert_eq!(json_lexer.boolean().unwrap(), JsonToken::Boolean(false));
+    assert_eq!(
+        json_lexer.next_boolean().unwrap(),
+        JsonToken::Boolean(false)
+    );
 }
 
 #[test]
@@ -34,7 +37,7 @@ fn error_bool() {
     let mut json_lexer: JsonTokenLexer;
     for xs in ["False", "True"].iter() {
         json_lexer = JsonTokenLexer::new(xs);
-        match &json_lexer.boolean() {
+        match &json_lexer.next_boolean() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -65,7 +68,7 @@ fn success_number() {
     .iter()
     {
         json_lexer = JsonTokenLexer::new(xs);
-        assert_eq!(json_lexer.number().unwrap(), *j);
+        assert_eq!(json_lexer.next_number().unwrap(), *j);
     }
 }
 
@@ -83,7 +86,7 @@ fn error_number() {
     .iter()
     {
         json_lexer = JsonTokenLexer::new(number);
-        match &json_lexer.number() {
+        match &json_lexer.next_number() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -115,7 +118,7 @@ fn success_string() {
     .iter()
     {
         json_lexer = JsonTokenLexer::new(xs);
-        assert_eq!(json_lexer.qstring().unwrap(), *j);
+        assert_eq!(json_lexer.next_qstring().unwrap(), *j);
     }
 }
 
@@ -124,7 +127,7 @@ fn error_string() {
     let mut json_lexer: JsonTokenLexer;
     for string in [r#"klasd"#, r#""#].iter() {
         json_lexer = JsonTokenLexer::new(string);
-        match &json_lexer.qstring() {
+        match &json_lexer.next_qstring() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -138,7 +141,7 @@ fn success_array() {
     let xs = r#"["string", null, 1.03, true]"#;
     let mut json_lexer = JsonTokenLexer::new(xs);
     assert_eq!(
-        json_lexer.array().unwrap(),
+        json_lexer.next_array().unwrap(),
         JsonToken::Array(vec![
             JsonToken::QString("string".into()),
             JsonToken::Null,
@@ -163,7 +166,7 @@ fn error_array() {
     .iter()
     {
         json_lexer = JsonTokenLexer::new(xs);
-        match &json_lexer.array() {
+        match &json_lexer.next_array() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };
@@ -185,7 +188,7 @@ fn success_object() {
     map.insert("key2".into(), JsonToken::Null);
     map.insert("key3".into(), JsonToken::Number(1.03));
     map.insert("key4".into(), JsonToken::Boolean(true));
-    assert_eq!(json_lexer.object().unwrap(), JsonToken::Object(map));
+    assert_eq!(json_lexer.next_object().unwrap(), JsonToken::Object(map));
 }
 
 #[test]
@@ -226,7 +229,7 @@ fn error_object() {
     .iter()
     {
         json_lexer = JsonTokenLexer::new(xs);
-        match &json_lexer.object() {
+        match &json_lexer.next_object() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };

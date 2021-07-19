@@ -18,7 +18,7 @@ pub struct JsonParseError {
 
 impl std::fmt::Display for JsonParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let printable_error = format!("{:?}", self.error_type).uncamelized();
+        let printable_error = format!("{:?}", self.error_type).uncamelize();
         writeln!(
             f,
             "Json {} ({}:{})",
@@ -54,15 +54,15 @@ pub enum JsonQueryErrorType {
     SyntaxError,
 }
 
-pub struct JsonQueryParseError {
+pub struct JsonQueryError {
     pub string: String,
     pub pointer: Pointer,
     pub error_type: JsonQueryErrorType,
 }
 
-impl std::fmt::Display for JsonQueryParseError {
+impl std::fmt::Display for JsonQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let printable_error = format!("{:?}", self.error_type).uncamelized();
+        let printable_error = format!("{:?}", self.error_type).uncamelize();
         writeln!(f, "JsonQuery {} ({})", printable_error, self.pointer)?;
 
         let start = std::cmp::max(0, self.pointer as i32 - 26);
@@ -82,7 +82,7 @@ impl std::fmt::Display for JsonQueryParseError {
     }
 }
 
-impl std::fmt::Debug for JsonQueryParseError {
+impl std::fmt::Debug for JsonQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         std::fmt::Display::fmt(self, f)
     }

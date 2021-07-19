@@ -1,5 +1,8 @@
 #!/bin/bash
 
+PWD=$(dirname "$0")
+BIN="$PWD/../target/release/ruson"
+
 function run {
   json_file=$1
   filesize=$(du -sh "$json_file" | awk '{print $1}')
@@ -9,11 +12,11 @@ function run {
   echo "$BANNER"
   STATUS="filesize: $filesize | lines: $lines | characters: $characters"
   echo "$STATUS"
-  COMMAND=$((time ./target/release/ruson "$json_file" &>/dev/null) 2>&1)
+  COMMAND=$((time "$BIN" "$json_file" &>/dev/null) 2>&1)
   echo "$COMMAND"
 }
 
-for json_file in $(ls ./benchmark/*.json);
+for json_file in $(ls "$PWD"/*.json);
 do
   printf "$(run "$json_file" "Benchmarking $json_file")\n\n"
 done
