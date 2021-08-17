@@ -4,7 +4,7 @@ use super::{
     JsonPropertyLexer,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct JsonQuery {
     properties: Vec<JsonProperty>,
 }
@@ -14,15 +14,6 @@ impl JsonQuery {
         let mut properties = Vec::new();
         let mut lexer = JsonPropertyLexer::new(s);
 
-        lexer
-            .parser
-            .match_string(&format!("{}", JsonProperty::Root))
-            .ok_or(JsonQueryError {
-                string: s.into(),
-                pointer: lexer.parser.pointer,
-                error_type: JsonQueryErrorType::InvalidRootProperty,
-            })?;
-
         while let Some(maybe_property) = lexer.next() {
             let property = maybe_property.or_else(|pointer| {
                 Err(JsonQueryError {
@@ -31,11 +22,14 @@ impl JsonQuery {
                     error_type: JsonQueryErrorType::SyntaxError,
                 })
             })?;
-
             properties.push(property);
         }
 
-        Ok(Self { properties })
+        Ok(Self::from(properties))
+    }
+
+    pub fn from(properties: Vec<JsonProperty>) -> Self {
+        Self { properties }
     }
 
     pub fn properties<'a>(&'a self) -> std::slice::Iter<'a, JsonProperty> {

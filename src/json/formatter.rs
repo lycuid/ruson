@@ -95,14 +95,22 @@ impl<'a> std::fmt::Display for JsonFormatter<'a> {
             JsonFormat::Pretty => Self::prettified(f, self.token, 0),
             JsonFormat::Table => match self.token {
                 JsonToken::Array(array) => {
-                    for value in array {
-                        writeln!(f, "{}", value)?;
+                    let mut iter = array.iter();
+                    if let Some(value) = iter.next() {
+                        write!(f, "{}", value)?;
+                    }
+                    while let Some(value) = iter.next() {
+                        write!(f, "\n{}", value)?;
                     }
                     Ok(())
                 }
                 JsonToken::Object(map) => {
-                    for (key, value) in map {
-                        writeln!(f, "{}\t{}", key, value)?;
+                    let mut iter = map.iter();
+                    if let Some((key, value)) = iter.next() {
+                        write!(f, "{}\t{}", key, value)?;
+                    }
+                    while let Some((key, value)) = iter.next() {
+                        write!(f, "\n{}\t{}", key, value)?;
                     }
                     Ok(())
                 }

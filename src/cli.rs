@@ -1,4 +1,4 @@
-//! Posix compliant command line arguemnt parser and processor.
+//! Posix compliant command line argument parser and processor.
 use super::parser::Parser;
 
 type Lines = Vec<String>;
@@ -156,8 +156,9 @@ impl<'a> Cli<'a> {
                                 }
                             }
                         }
-                        // end of command (just double hyphen).
-                        return Ok(Some(arg));
+                        // double hyphen, end of command.
+                        // return the next argument as is.
+                        return Ok(args.next());
                     }
                     // single hyphen followed by non hyphen character[s]:
                     // keep matching `flags`, when fails, try to match the

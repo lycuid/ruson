@@ -1,0 +1,177 @@
+.TH APPNAME 1 APPNAME-APPVERSION
+
+.SH
+APPNAME
+.PP
+APPNAME \- command line json utility.
+
+.SH
+SYNOPSIS
+.PP
+APPNAME
+[\fIOPTIONS\fR]... \fIFILE\fR
+
+.SH
+DESCRIPTION
+.PP
+Parse and process \fIvalid json\fR text and print the processed \fBjson\fR subtree to standard output.
+If no \fIFILE\fR provided, standard input will be used to read the json text.
+.PP
+Option \fBquery\fR can be used to extract required json subtree from the root json tree.
+
+.SH
+OPTIONS
+.PP
+\fB\-h, \-\-help\fR
+.RS
+Print usage and exit.
+.RE
+
+.PP
+\fB\-v, \-\-version\fR
+.RS
+Print version and exit.
+.RE
+
+.PP
+\fB\-p, \-\-pretty\fR
+.RS
+Print pretty formatted 'json'.
+.RE
+
+.PP
+\fB\-t, \-\-table\fR
+.RS
+Print table formatted 'json'.
+.RE
+
+.PP
+\fB\-q \fIquery\fR,
+\fB\-\-query\fR[=\fIquery\fR]
+.RS
+text for extracting desired \fBjson\fR subtree.
+\fBquery\fR text can be any valid javascript syntax of object property accessors or array indexing.
+Additional to the accessors, query also support some custom functions (See Examples).
+
+.SH
+QUERY SYNTAX EXAMPLES.
+.PP
+.IP \[bu] 2
+\fIDot-notation\fR. (.prop)
+.RS 4
+echo '{ "prop": "value" }' | APPNAME --query '.prop'
+.RE
+.RS 4
+output: "value"
+.RE
+
+.IP \[bu]
+\fIBracket-notation\fR. (["prop"])
+.RS 4
+echo '{ "prop": "value" }' | APPNAME --query '["prop"]'
+.RE
+.RS 4
+output: "value"
+.RE
+
+.IP \[bu]
+\fIArray-indexing\fR. ([0])
+.RS 4
+echo '{ prop": [1, 2, 3, 4, 5] }' | APPNAME --query '.prop[2]'
+.RE
+.RS 4
+output: 3
+.RE
+
+.IP \[bu]
+\fIKeys-Function\fR. (.keys())
+.RS 4
+echo '{ "one": 1, "two": 2, "three": 3 }' | APPNAME -q '.keys()'
+.RE
+.RS 4
+output: ["one", "two", "three"]
+.RE
+
+.IP \[bu]
+\fIValues-Function\fR. (.values())
+.RS 4
+echo '{ "one": 1, "two": 2, "three": 3 }' | APPNAME -q '.values()'
+.RE
+.RS 4
+output: [1, 2, 3]
+.RE
+
+.IP \[bu]
+\fILength-Function\fR. (.length())
+.RS 4
+echo '[1, 2, 3]' | APPNAME -q '.length()'
+.RE
+.RS 4
+output: 3
+.RE
+
+.IP \[bu]
+\fIMap-Function\fR. (.map(<query>))
+.RS 4
+echo '{ "list": [{ "id": 1 }, { "id": 2 }, { "id": 3 }] }' | APPNAME -q '.list.map(.id)'
+.RE
+.RS 4
+output: [1, 2, 3]
+.RE
+
+.SH
+EXAMPLES
+.IP \[bu] 2
+Processing text from file.
+.RS 4
+# file.json
+.RE
+.RS 4
+# ---------
+.RE
+.RS 4
+# {
+.RE
+.RS 4
+#    "obj": {
+.RE
+.RS 4
+#      "list": ["a", "b", "c", "d"]
+.RE
+.RS 4
+#    }
+.RE
+.RS 4
+# }
+.RE
+
+.RS 4
+APPNAME --query='.obj.list[0]' file.json
+.RE
+.RS 4
+output: "a"
+.RE
+
+.IP \[bu] 2
+Processing text from pipe
+.RS 4
+echo "[1, 2, 3, 4, 5]" | APPNAME --query "[3]"
+.RE
+.RS 4
+outputs: 4
+.RE
+
+.SH
+AUTHOR
+.PP
+Written by APPAUTHOR
+
+.SH
+BUGS
+.PP
+Submit issues at <\fIhttps://github.com/lycuid/APPNAME/issues/\fR>
+
+.SH
+COPYRIGHT
+.PP
+License GPLv3 <\fIhttps://gnu.org/licenses/gpl.html\fR>.

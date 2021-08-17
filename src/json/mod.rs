@@ -6,6 +6,7 @@ pub mod token;
 
 use super::parser::*;
 use error::{JsonErrorType, JsonParseError};
+use query::JsonQuery;
 use token::{JsonProperty, JsonToken};
 
 pub type ParseError = (JsonErrorType, Pointer);
@@ -333,6 +334,54 @@ impl JsonPropertyLexer {
                     .and_then(|_| Some(JsonProperty::Index(number)))
             })
     }
+
+    /// try parsing [`JsonProperty::Keys`](JsonProperty::Keys).
+    pub fn keysfunction(&mut self) -> Option<JsonProperty> {
+        self.parser
+            .match_string(".keys()")
+            .and_then(|_| Some(JsonProperty::Keys))
+    }
+
+    /// try parsing [`JsonProperty::Values`](JsonProperty::Values).
+    pub fn valuesfunction(&mut self) -> Option<JsonProperty> {
+        self.parser
+            .match_string(".values()")
+            .and_then(|_| Some(JsonProperty::Values))
+    }
+
+    /// try parsing [`JsonProperty::Length`](JsonProperty::Length).
+    pub fn lengthfunction(&mut self) -> Option<JsonProperty> {
+        self.parser
+            .match_string(".length()")
+            .and_then(|_| Some(JsonProperty::Length))
+    }
+
+    /// try parsing [`JsonProperty::Map(JsonQuery)`](JsonProperty::Map).
+    pub fn mapfunction(&mut self) -> Option<JsonProperty> {
+        self.parser.match_string(".map(")?;
+
+        let mut depth = 0;
+        let query_string = self.parser.match_while(|&ch| match ch {
+            '(' => {
+                depth += 1;
+                true
+            }
+            ')' => match depth {
+                0 => false,
+                _ => {
+                    depth -= 1;
+                    true
+                }
+            },
+            _ => true,
+        });
+
+        JsonQuery::new(&query_string).ok().and_then(|query| {
+            self.parser
+                .match_char(')')
+                .and_then(|_| Some(JsonProperty::Map(query)))
+        })
+    }
 }
 
 impl Iterator for JsonPropertyLexer {
@@ -340,7 +389,12 @@ impl Iterator for JsonPropertyLexer {
 
     fn next(&mut self) -> Option<Self::Item> {
         let maybe_property = match self.parser.peek() {
-            Some('.') => self.dotproperty(),
+            Some('.') => self
+                .keysfunction()
+                .or_else(|| self.valuesfunction())
+                .or_else(|| self.lengthfunction())
+                .or_else(|| self.mapfunction())
+                .or_else(|| self.dotproperty()),
             Some('[') => match self.parser.peek_at(self.parser.pointer + 1) {
                 Some('"') => self.bracketproperty(),
                 Some('0'..='9') => self.arrayindex(),

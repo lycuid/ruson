@@ -4,7 +4,6 @@ use ruson::{
     json::{
         formatter::{JsonFormat, JsonFormatter},
         query::JsonQuery,
-        token::JsonProperty,
         JsonTokenLexer,
     },
 };
@@ -40,14 +39,12 @@ fn main() -> Result<(), String> {
         })
         .add_option(CliOption {
             name: "query",
-            default: Some(format!("{}", JsonProperty::Root)),
+            default: Some("".into()),
             flag: CliFlag {
                 short: "-q",
                 long: Some("--query"),
                 description: vec![
-                    "Query for extracting desired 'json'".into(),
-                    "subtree. The root 'json' tree must".into(),
-                    format!("be referred as '{}'", JsonProperty::Root),
+                    "Query for extracting desired 'json' subtree.".into(),
                 ],
             },
         });

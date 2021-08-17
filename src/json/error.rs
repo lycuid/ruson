@@ -50,7 +50,6 @@ impl std::fmt::Debug for JsonParseError {
 
 #[derive(Debug, PartialEq)]
 pub enum JsonQueryErrorType {
-    InvalidRootProperty, // special error type for only one use case.
     SyntaxError,
 }
 
