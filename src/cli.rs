@@ -8,8 +8,7 @@ type Lines = Vec<String>;
 pub struct CliFlag<'a> {
     pub short: &'a str,
     pub long: Option<&'a str>,
-    /// lines of string, to have smooth display,
-    /// with probably similar width lines.
+    /// lines of string, for nicer display.
     pub description: Lines,
 }
 
@@ -20,7 +19,7 @@ impl<'a> CliFlag<'a> {
     }
 }
 
-/// Command line Argument Options (always' accept arguments
+/// Command line Argument Options (always accept arguments).
 #[derive(Debug, Clone)]
 pub struct CliOption<'a> {
     /// Display name for word argument in the Program Usage string.
@@ -160,12 +159,10 @@ impl<'a> Cli<'a> {
                         // return the next argument as is.
                         return Ok(args.next());
                     }
+
                     // single hyphen followed by non hyphen character[s]:
-                    // keep matching `flags`, when fails, try to match the
-                    // immediate next char with `options`.
-                    // if that fails, then return error (invalid flag).
-                    // or take the rest of the string (if exists) as the value.
-                    // if no rest, then move to next arguemnt as the value.
+                    // 1. single hyphen can be followed by mutiple short flags.
+                    // 2. short option is only allowed at the end.
                     Some(ch) => {
                         let mut flag_arg = format!("-{}", ch);
                         // keep parsing flags, until it doesn't match
@@ -217,7 +214,6 @@ impl<'a> Cli<'a> {
                 _ => return Ok(Some(arg)),
             }
         }
-
         Ok(None)
     }
 }

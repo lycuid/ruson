@@ -2,19 +2,23 @@ use ruson::{
     cli::{Cli, CliFlag, CliOption},
     error::RusonResult,
     json::{
-        formatter::{JsonFormat, JsonFormatter},
+        formatter::{PrettyJson, RawJson, TableJson},
         query::JsonQuery,
+        token::JsonToken,
         JsonTokenLexer,
     },
+    utils::{get_version, Formatter},
 };
 use std::{
     collections::HashMap,
     io::{self, Read},
 };
 
+const CONFIG_STR: &str = include_str!("../Cargo.toml");
+
 fn main() -> Result<(), String> {
-    let app_name: String = std::env::args().next().unwrap();
-    let internal_error = format!("{} internal error.", app_name);
+    let app_name = std::env::args().next().unwrap();
+    let app_version = get_version(CONFIG_STR);
 
     let mut rusoncli = Cli::new(&app_name);
     rusoncli
@@ -57,21 +61,25 @@ fn main() -> Result<(), String> {
         .parse_and_populate(&mut args, &mut cliflags, &mut clioptions)
         .unwrap_or_exit();
 
+    let mut json_formatter: Box<dyn Formatter<Token = JsonToken>> =
+        Box::new(RawJson {});
+
     for flag in cliflags.iter() {
         match flag.as_str() {
+            "-p" => json_formatter = Box::new(PrettyJson { padding: "\t" }),
+            "-t" => json_formatter = Box::new(TableJson {}),
+            "-v" => Err(format!(" {}", app_version)).unwrap_or_exit_with(0),
             "-h" => {
                 println!("{}", rusoncli);
-                std::process::exit(0)
+                std::process::exit(0);
             }
-            "-v" => {
-                println!("0.1.0");
-                std::process::exit(0)
-            }
-            _ => {}
+            _ => continue,
         }
     }
 
-    let query_string = clioptions.get("query").ok_or(&internal_error)?;
+    let query_string = clioptions
+        .get("query")
+        .ok_or(format!("{} internal error.", app_name))?;
     let json_query = JsonQuery::new(query_string).unwrap_or_exit_with(2);
 
     let json_string = if let Some(filepath) = json_filepath {
@@ -86,29 +94,13 @@ fn main() -> Result<(), String> {
             .unwrap_or_exit();
         buffer
     };
-
     let json_token = JsonTokenLexer::new(&json_string)
         .tokenize()
         .unwrap_or_exit()
         .apply(&json_query)
         .unwrap_or_exit();
 
-    let mut json_formatter = JsonFormatter::new(&json_token);
-    for flag in cliflags.iter() {
-        match flag.as_str() {
-            "-p" => {
-                json_formatter.with(JsonFormat::Pretty);
-                break;
-            }
-            "-t" => {
-                json_formatter.with(JsonFormat::Table);
-                break;
-            }
-            _ => {}
-        }
-    }
-
-    println!("{}", json_formatter);
+    println!("{}", json_formatter.dump(&json_token));
 
     Ok(())
 }

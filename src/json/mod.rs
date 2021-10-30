@@ -46,10 +46,17 @@ impl JsonTokenLexer {
         })
     }
 
-    /// calls `next()` and unwraps to [`ParseResult`](ParseResult).
+    /// try parsing next token.
     pub fn next_token(&mut self) -> ParseResult {
-        self.next()
-            .unwrap_or(Err(self.error(JsonErrorType::SyntaxError)))
+        match self.parser.peek() {
+            Some('-' | '0'..='9') => self.next_number(),
+            Some('t' | 'f') => self.next_boolean(),
+            Some('"') => self.next_qstring(),
+            Some('n') => self.next_null(),
+            Some('[') => self.next_array(),
+            Some('{') => self.next_object(),
+            _ => return Err(self.error(JsonErrorType::SyntaxError)),
+        }
     }
 
     /// try parsing [`JsonToken::Null`](JsonToken::Null).
@@ -264,22 +271,6 @@ impl JsonTokenLexer {
 
     fn error(&self, error_type: JsonErrorType) -> (JsonErrorType, Pointer) {
         (error_type, self.parser.pointer)
-    }
-}
-
-impl Iterator for JsonTokenLexer {
-    type Item = ParseResult;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.parser.peek() {
-            Some('-') | Some('0'..='9') => Some(self.next_number()),
-            Some('t') | Some('f') => Some(self.next_boolean()),
-            Some('"') => Some(self.next_qstring()),
-            Some('n') => Some(self.next_null()),
-            Some('[') => Some(self.next_array()),
-            Some('{') => Some(self.next_object()),
-            _ => return None,
-        }
     }
 }
 

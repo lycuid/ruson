@@ -10,6 +10,7 @@ source code _does not_ contain any third party dependencies (why? single source 
   * [Arguments](#arguments)
 - [Query Syntax](#query-syntax)
 - [Examples](#examples)
+- [Licence](#licence)
 
 # INSTALLATION
 ### From source.

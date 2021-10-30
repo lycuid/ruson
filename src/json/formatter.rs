@@ -1,121 +1,117 @@
+//! Json Formatter: can call `dump()`, returns string of formatted json token.
 use super::token::JsonToken;
+use crate::utils::Formatter;
 
-#[derive(Debug, PartialEq)]
-pub enum JsonFormat {
-    Raw,
-    Pretty,
-    Table,
+pub struct RawJson {}
+
+impl Formatter for RawJson {
+    type Token = JsonToken;
+    fn dump(&self, token: &Self::Token) -> String {
+        format!("{}", token)
+    }
 }
 
-pub struct JsonFormatter<'a> {
-    token: &'a JsonToken,
-    with: JsonFormat,
+pub struct PrettyJson<'a> {
+    pub padding: &'a str,
 }
 
-impl<'a> JsonFormatter<'a> {
-    pub fn new(token: &'a JsonToken) -> Self {
-        Self {
-            token,
-            with: JsonFormat::Raw,
-        }
-    }
-
-    pub fn with(&mut self, with: JsonFormat) -> &mut Self {
-        self.with = with;
-        self
-    }
-
-    fn prettified(
-        f: &mut std::fmt::Formatter,
-        token: &JsonToken,
-        depth: usize,
-    ) -> std::fmt::Result {
+impl<'a> PrettyJson<'a> {
+    fn prettified(&self, s: &mut String, token: &JsonToken, depth: usize) {
         match token {
             JsonToken::Array(tokens) => {
                 let mut tokens = tokens.iter();
 
-                writeln!(f, "[")?;
                 if let Some(token) = tokens.next() {
-                    write!(f, "{}", Self::indented(depth + 1, &""))?;
-                    Self::prettified(f, token, depth + 1)?
+                    s.push_str(&format!(
+                        "[\n{}",
+                        self.indented(depth + 1, &"")
+                    ));
+                    self.prettified(s, token, depth + 1);
                 }
 
                 for token in tokens {
-                    writeln!(f, ",",)?;
-                    write!(f, "{}", Self::indented(depth + 1, &""))?;
-                    Self::prettified(f, token, depth + 1)?
+                    s.push_str(&format!(
+                        ",\n{}",
+                        self.indented(depth + 1, &"")
+                    ));
+                    self.prettified(s, token, depth + 1);
                 }
-                writeln!(f, "")?;
-                write!(f, "{}", Self::indented(depth, &"]"))
+                s.push_str(&format!("\n{}", self.indented(depth, &"]")));
             }
             JsonToken::Object(pairs) => {
                 let mut pairs = pairs.iter();
 
-                writeln!(f, "{{")?;
                 if let Some((key, token)) = pairs.next() {
-                    write!(
-                        f,
-                        "{}: ",
-                        Self::indented(
+                    s.push_str(&format!(
+                        "{{\n{}: ",
+                        self.indented(
                             depth + 1,
                             &JsonToken::QString(key.into())
                         )
-                    )?;
-                    Self::prettified(f, token, depth + 1)?
+                    ));
+                    self.prettified(s, token, depth + 1);
                 }
 
                 for (key, token) in pairs {
-                    writeln!(f, ",",)?;
-                    write!(
-                        f,
-                        "{}: ",
-                        Self::indented(
+                    s.push_str(&format!(
+                        ",\n{}: ",
+                        self.indented(
                             depth + 1,
                             &JsonToken::QString(key.into())
                         )
-                    )?;
-                    Self::prettified(f, token, depth + 1)?
+                    ));
+                    self.prettified(s, token, depth + 1)
                 }
-                writeln!(f, "")?;
-                write!(f, "{}", Self::indented(depth, &"}"))
+                s.push_str(&format!("\n{}", self.indented(depth, &"}")));
             }
-            _ => write!(f, "{}", token),
+            _ => s.push_str(&format!("{}", token)),
         }
     }
 
-    fn indented(depth: usize, s: &dyn std::fmt::Display) -> String {
-        format!("{}{}", vec!["\t"; depth].join(""), s)
+    fn indented(&self, depth: usize, s: &dyn std::fmt::Display) -> String {
+        format!("{}{}", vec![self.padding; depth].join(""), s)
+        // format!("{}{}", vec!["\t"; depth].join(""), s)
     }
 }
 
-impl<'a> std::fmt::Display for JsonFormatter<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        match self.with {
-            JsonFormat::Raw => write!(f, "{}", self.token),
-            JsonFormat::Pretty => Self::prettified(f, self.token, 0),
-            JsonFormat::Table => match self.token {
-                JsonToken::Array(array) => {
-                    let mut iter = array.iter();
-                    if let Some(value) = iter.next() {
-                        write!(f, "{}", value)?;
-                    }
-                    while let Some(value) = iter.next() {
-                        write!(f, "\n{}", value)?;
-                    }
-                    Ok(())
+impl<'a> Formatter for PrettyJson<'a> {
+    type Token = JsonToken;
+    fn dump(&self, token: &Self::Token) -> String {
+        let mut string = String::new();
+        self.prettified(&mut string, token, 0);
+        string
+    }
+}
+
+pub struct TableJson {}
+
+impl Formatter for TableJson {
+    type Token = JsonToken;
+    fn dump(&self, token: &Self::Token) -> String {
+        match token {
+            JsonToken::Array(array) => {
+                let mut string = String::new();
+                let mut iter = array.iter();
+                if let Some(value) = iter.next() {
+                    string.push_str(&format!("{}", value));
                 }
-                JsonToken::Object(map) => {
-                    let mut iter = map.iter();
-                    if let Some((key, value)) = iter.next() {
-                        write!(f, "{}\t{}", key, value)?;
-                    }
-                    while let Some((key, value)) = iter.next() {
-                        write!(f, "\n{}\t{}", key, value)?;
-                    }
-                    Ok(())
+                while let Some(value) = iter.next() {
+                    string.push_str(&format!("\n{}", value));
                 }
-                _ => write!(f, "{}", self.token),
-            },
+                string
+            }
+            JsonToken::Object(map) => {
+                let mut string = String::new();
+                let mut iter = map.iter();
+                if let Some((key, value)) = iter.next() {
+                    string.push_str(&format!("{}\t{}", key, value));
+                }
+                while let Some((key, value)) = iter.next() {
+                    string.push_str(&format!("\n{}\t{}", key, value));
+                }
+                string
+            }
+            _ => format!("{}", token),
         }
     }
 }

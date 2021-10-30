@@ -16,7 +16,7 @@
 //! Requirements:
 //! - [rust and cargo](https://www.rust-lang.org/)
 //! - [gnu make](https://www.gnu.org/software/make/)
-//! ```sh
+//! ```console
 //! git clone --depth=1 https://github.com/lycuid/ruson.git
 //! cd ruson
 //! make && sudo make install
@@ -44,47 +44,47 @@
 //!
 //! # Query Syntax.
 //! Dot notation.
-//! ```sh
+//! ```console
 //! echo '{ "prop": "value" }' | ruson --query '.prop' # "value"
 //! ```
 //!
 //! Bracket notation.
-//! ```sh
+//! ```console
 //! echo '{ "prop": "value" }' | ruson --query '["prop"]' # "value"
 //! ```
 //!
 //! Array indexing.
-//! ```sh
+//! ```console
 //! echo '{ "prop": [1, 2, 3, 4, 5] }' | ruson --query '.prop[2]' # 3
 //! ```
 //!
 //! `.keys()` Function.
-//! ```sh
+//! ```console
 //! echo '{ "one": 1, "two": 2, "three": 3 }' | ruson -q '.keys()' # ["one", "two", "three"]
 //! ```
 //!
 //! `.values()` function.
-//! ```sh
+//! ```console
 //! echo '{ "one": 1, "two": 2, "three": 3 }' | ruson -q '.values()' # [1, 2, 3]
 //! ```
 //!
 //! `.length()` function.
-//! ```sh
+//! ```console
 //! echo '[1, 2, 3]' | ruson -q '.length()' # 3
 //! ```
 //!
 //! `.map()` function.
-//! ```sh
+//! ```console
 //! echo '{ "list": [{ "id": 1 }, { "id": 2 }, { "id": 3 }] }' | ruson -q'.list.map(.id)' # [1, 2, 3]
 //! ```
 //!
 //! # EXAMPLES
 //! Download latest `xkcd` comic
-//! ```sh
+//! ```console
 //! curl https://xkcd.com/info.0.json | ruson -q ".img" | xargs wget
 //! ```
 //! Pokemon attack names.
-//! ```sh
+//! ```console
 //! curl https://pokeapi.co/api/v2/pokemon/pikachu | ruson -q ".moves[0].move.name"
 //! ```
 //!
@@ -94,6 +94,7 @@ pub mod cli;
 pub mod error;
 pub mod json;
 pub mod parser;
+pub mod utils;
 
 #[cfg(test)]
 mod tests;

@@ -8,5 +8,5 @@ BINPREFIX=$(PREFIX)/bin
 MANPREFIX=$(PREFIX)/share/man/man1
 
 BENCHMARK_URLS=\
-							https://api.github.com/repos/rust-lang/rust \
-							https://api.github.com/repos/rust-lang/rust/commits
+ https://api.github.com/repos/rust-lang/rust \
+ https://api.github.com/repos/rust-lang/rust/commits

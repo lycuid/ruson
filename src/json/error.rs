@@ -21,8 +21,8 @@ impl std::fmt::Display for JsonParseError {
         let printable_error = format!("{:?}", self.error_type).uncamelize();
         writeln!(
             f,
-            "Json {} ({}:{})",
-            printable_error, self.position.row, self.position.col
+            "{}:{} Json {} ",
+            self.position.row, self.position.col, printable_error
         )?;
 
         let start = std::cmp::max(0, self.position.col as i32 - 26);
@@ -62,7 +62,7 @@ pub struct JsonQueryError {
 impl std::fmt::Display for JsonQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let printable_error = format!("{:?}", self.error_type).uncamelize();
-        writeln!(f, "JsonQuery {} ({})", printable_error, self.pointer)?;
+        writeln!(f, "{} JsonQuery {}", self.pointer, printable_error)?;
 
         let start = std::cmp::max(0, self.pointer as i32 - 26);
         let printable_string = self.string.shorten(start as usize);

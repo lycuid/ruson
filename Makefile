@@ -1,38 +1,46 @@
 include config.mk
 
 build: fmt clean
-	cargo build --release
+	cargo build --release $(CARGO_FLAGS)
+
+run:
+	cargo run $(CARGO_FLAGS)
 
 test: fmt clean
-	cargo test
+	cargo test $(CARGO_FLAGS)
 
 doc: fmt clean
-	cargo doc
+	cargo doc $(CARGO_FLAGS)
 
 fmt:
 	cargo fmt
 
 clean:
 	cargo clean
+	rm -rf Cargo.lock
 
 readme: src/lib.rs
-	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs | tee README.md
+	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs > README.md
 
-benchmark: build config.mk
-	$(SHELL) ./benchmark/run.sh $(BENCHMARK_URLS)
+benchmark: config.mk
+	./benchmark/run.sh $(BIN) $(BENCHMARK_URLS)
 
-install: $(BIN)
-	strip $(BIN)
+preinstall: config.mk
 	mkdir -p $(DESTDIR)$(BINPREFIX)
-	cp $(BIN) $(DESTDIR)$(BINPREFIX)/$(NAME)
-	chmod 755 $(DESTDIR)$(BINPREFIX)/$(NAME)
 	mkdir -p $(DESTDIR)$(MANPREFIX)
+
+install: $(BIN) preinstall
+	strip $(BIN)
+	cp $(BIN) $(DESTDIR)$(BINPREFIX)/$(NAME)
 	sed -e 's/APPNAME/$(NAME)/g' \
 		-e 's/APPVERSION/$(VERSION)/g' \
 		-e 's/APPAUTHOR/$(AUTHOR)/g' $(NAME).1 \
 		| gzip > $(DESTDIR)$(MANPREFIX)/$(NAME).1.gz
+	chmod 755 $(DESTDIR)$(BINPREFIX)/$(NAME)
 	chmod 644 $(DESTDIR)$(MANPREFIX)/$(NAME).1.gz
 
 uninstall:
 	rm $(DESTDIR)$(BINPREFIX)/$(NAME)
 	rm $(DESTDIR)$(MANPREFIX)/$(NAME).1.gz
+
+.PHONY: run fmt clean
