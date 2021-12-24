@@ -23,7 +23,7 @@ readme: src/lib.rs
 	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs > README.md
 
 benchmark: config.mk
-	./benchmark/run.sh $(BIN) $(BENCHMARK_URLS)
+	./benchmark/run.sh $(BIN) -- $(BENCHMARK_URLS)
 
 preinstall: config.mk
 	mkdir -p $(DESTDIR)$(BINPREFIX)

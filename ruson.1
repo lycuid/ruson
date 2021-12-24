@@ -84,7 +84,7 @@ output: 3
 .RE
 
 .IP \[bu]
-\fIKeys-Function\fR. (.keys())
+\fIKeys-Function\fR. (.keys() valid for 'object')
 .RS 4
 echo '{ "one": 1, "two": 2, "three": 3 }' | APPNAME -q '.keys()'
 .RE
@@ -93,7 +93,7 @@ output: ["one", "two", "three"]
 .RE
 
 .IP \[bu]
-\fIValues-Function\fR. (.values())
+\fIValues-Function\fR. (.values() valid for 'object')
 .RS 4
 echo '{ "one": 1, "two": 2, "three": 3 }' | APPNAME -q '.values()'
 .RE
@@ -102,7 +102,7 @@ output: [1, 2, 3]
 .RE
 
 .IP \[bu]
-\fILength-Function\fR. (.length())
+\fILength-Function\fR. (.length() valid for 'array' and 'string')
 .RS 4
 echo '[1, 2, 3]' | APPNAME -q '.length()'
 .RE
@@ -111,7 +111,7 @@ output: 3
 .RE
 
 .IP \[bu]
-\fIMap-Function\fR. (.map(<query>))
+\fIMap-Function\fR. (.map(<query>) valid for 'array')
 .RS 4
 echo '{ "list": [{ "id": 1 }, { "id": 2 }, { "id": 3 }] }' | APPNAME -q '.list.map(.id)'
 .RE

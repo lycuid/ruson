@@ -7,20 +7,18 @@ use ruson::{
         token::JsonToken,
         JsonTokenLexer,
     },
-    utils::{get_version, Formatter},
+    utils::Formatter,
 };
 use std::{
     collections::HashMap,
     io::{self, Read},
 };
 
-const CONFIG_STR: &str = include_str!("../Cargo.toml");
+const NAME: &'static str = env!("CARGO_PKG_NAME");
+const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), String> {
-    let app_name = std::env::args().next().unwrap();
-    let app_version = get_version(CONFIG_STR);
-
-    let mut rusoncli = Cli::new(&app_name);
+    let mut rusoncli = Cli::new(NAME);
     rusoncli
         .set_description(vec![
             "Extract sub tree from valid 'json' text.".into(),
@@ -57,18 +55,20 @@ fn main() -> Result<(), String> {
     let mut cliflags: Vec<String> = Vec::new();
     let mut clioptions: HashMap<&str, String> = HashMap::new();
 
-    let json_filepath = rusoncli
-        .parse_and_populate(&mut args, &mut cliflags, &mut clioptions)
-        .unwrap_or_exit();
+    let json_filepath = rusoncli.parse_and_populate(
+        &mut args,
+        &mut cliflags,
+        &mut clioptions,
+    )?;
 
     let mut json_formatter: Box<dyn Formatter<Token = JsonToken>> =
         Box::new(RawJson {});
 
     for flag in cliflags.iter() {
         match flag.as_str() {
-            "-p" => json_formatter = Box::new(PrettyJson { padding: "\t" }),
+            "-p" => json_formatter = Box::new(PrettyJson { padding: "  " }),
             "-t" => json_formatter = Box::new(TableJson {}),
-            "-v" => Err(format!(" {}", app_version)).unwrap_or_exit_with(0),
+            "-v" => Err(format!(" {}", VERSION)).unwrap_or_exit_with(0),
             "-h" => {
                 println!("{}", rusoncli);
                 std::process::exit(0);
@@ -77,28 +77,27 @@ fn main() -> Result<(), String> {
         }
     }
 
+    // construct query.
     let query_string = clioptions
         .get("query")
-        .ok_or(format!("{} internal error.", app_name))?;
+        .ok_or(format!("{} internal error.", NAME))?;
     let json_query = JsonQuery::new(query_string).unwrap_or_exit_with(2);
 
+    // tokenize json string.
     let json_string = if let Some(filepath) = json_filepath {
-        std::fs::read_to_string(filepath.clone())
-            .or_else(|err| Err(format!("'{}' {}", filepath, err)))
-            .unwrap_or_exit()
+        std::fs::read_to_string(&filepath)
+            .or_else(|err| Err(format!("'{}' {}", filepath, err)))?
     } else {
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
-            .or(Err("cannot read from stdin."))
-            .unwrap_or_exit();
+            .or(Err("cannot read from stdin."))?;
         buffer
     };
     let json_token = JsonTokenLexer::new(&json_string)
         .tokenize()
         .unwrap_or_exit()
-        .apply(&json_query)
-        .unwrap_or_exit();
+        .apply(&json_query)?;
 
     println!("{}", json_formatter.dump(&json_token));
 

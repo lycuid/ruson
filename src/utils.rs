@@ -3,16 +3,11 @@ pub trait Formatter {
     fn dump(&self, token: &Self::Token) -> String;
 }
 
-pub fn get_version(configs: &'static str) -> String {
-    let line = configs
-        .lines()
-        .filter(|&line| line.contains("version"))
-        .next()
-        .unwrap_or(r#"version = "0.1.0""#);
-
-    line.chars()
-        .skip_while(|&ch| ch != '"')
-        .skip(1)
-        .take_while(|&ch| ch != '"')
-        .collect()
+pub fn total_digits(mut n: i32) -> i32 {
+    let mut digits = 0;
+    while n > 0 {
+        n /= 10;
+        digits += 1;
+    }
+    digits
 }

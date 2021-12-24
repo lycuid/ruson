@@ -1,24 +1,27 @@
 #!/bin/bash
 
-CMD="$1"
-shift
+CMD=""
+for arg in "$@"; do
+  shift
+  [ $arg = '--' ] && break
+  CMD="$CMD $arg"
+done
 
 run() {
-  json_file=$1
-  filesize=$(du -sh "$json_file" | awk '{print $1}')
-  read lines characters <<< $(wc "$json_file" | awk '{print $1, $3}')
+  JSONFILE=$1
+  BANNER=$2
 
-  TIME=$(time $CMD "$json_file" &>/dev/null 2>&1)
+  TIME=$(time $CMD "$JSONFILE" &>/dev/null 2>&1)
   if [ $? -ne 0 ]; then
-    echo "Command Failed for '$2'."
+    echo "Command Failed for $2."
     return
   fi
 
-  BANNER="Benchmarking $2"
-  echo "$BANNER"
+  filesize=$(du -sh "$JSONFILE" | awk '{print $1}')
+  read lines characters <<< $(wc "$JSONFILE" | awk '{print $1, $3}')
+
   STATUS="filesize: $filesize | lines: $lines | characters: $characters"
-  echo "$STATUS"
-  echo "$TIME"
+  printf "$BANNER\n$STATUS\n$TIME\n"
 }
 
 for json_file in $(dirname "$0")/*.json;
@@ -31,6 +34,6 @@ trap "rm -rf ${TMPFILE}" EXIT HUP INT TERM
 
 for url in "$@";
 do
-  curl "$url" > "$TMPFILE" 2> /dev/null
-  printf "$(run "$TMPFILE" "url: $url")\n\n"
+  curl "$url" > "$TMPFILE" 2>/dev/null
+  printf "$(run "$TMPFILE" "Benchmarking url: $url")\n\n"
 done

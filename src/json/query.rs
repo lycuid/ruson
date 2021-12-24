@@ -1,3 +1,4 @@
+//! list of properties (chronological) needed to extract sub tree from `json`.
 use super::{
     error::{JsonQueryError, JsonQueryErrorType},
     token::JsonProperty,
@@ -17,7 +18,7 @@ impl JsonQuery {
         while let Some(maybe_property) = lexer.next() {
             let property = maybe_property.or_else(|pointer| {
                 Err(JsonQueryError {
-                    string: s.into(),
+                    line: s.into(),
                     pointer,
                     error_type: JsonQueryErrorType::SyntaxError,
                 })

@@ -70,7 +70,6 @@ impl<'a> PrettyJson<'a> {
 
     fn indented(&self, depth: usize, s: &dyn std::fmt::Display) -> String {
         format!("{}{}", vec![self.padding; depth].join(""), s)
-        // format!("{}{}", vec!["\t"; depth].join(""), s)
     }
 }
 

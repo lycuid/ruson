@@ -1,9 +1,9 @@
 //! Posix compliant command line argument parser and processor.
 use super::parser::Parser;
 
-type Lines = Vec<String>;
+pub type Lines = Vec<String>;
 
-/// Command line Argument Flag (doesn't accept arguments).
+/// Command line Flag (doesn't accept argument).
 #[derive(Debug, Clone)]
 pub struct CliFlag<'a> {
     pub short: &'a str,
@@ -19,11 +19,11 @@ impl<'a> CliFlag<'a> {
     }
 }
 
-/// Command line Argument Options (always accept arguments).
+/// Command line Argument Option (always accept argument).
 #[derive(Debug, Clone)]
 pub struct CliOption<'a> {
     /// Display name for word argument in the Program Usage string.
-    /// example: -f, --file <name>
+    /// example: -f, --file &lt;name&gt;
     pub name: &'a str,
     /// default value for the current option.
     pub default: Option<String>,

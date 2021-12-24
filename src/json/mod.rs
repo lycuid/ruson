@@ -4,7 +4,7 @@ pub mod formatter;
 pub mod query;
 pub mod token;
 
-use super::parser::*;
+use super::{parser::*, utils::total_digits};
 use error::{JsonErrorType, JsonParseError};
 use query::JsonQuery;
 use token::{JsonProperty, JsonToken};
@@ -30,7 +30,7 @@ impl JsonTokenLexer {
     pub fn tokenize(&mut self) -> Result<JsonToken, JsonParseError> {
         self.trim_front().next_token().or_else(|(error_type, ptr)| {
             let position = self.parser.position(ptr);
-            let string = self
+            let line = self
                 .parser
                 .get_string()
                 .lines()
@@ -39,7 +39,7 @@ impl JsonTokenLexer {
                 .collect();
 
             Err(JsonParseError {
-                string,
+                line,
                 position,
                 error_type,
             })
@@ -63,7 +63,7 @@ impl JsonTokenLexer {
     pub fn next_null(&mut self) -> ParseResult {
         self.parser
             .match_string("null")
-            .and_then(|_| Some(JsonToken::Null))
+            .map(|_| JsonToken::Null)
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
@@ -74,22 +74,20 @@ impl JsonTokenLexer {
 
         parse_true
             .or_else(parse_false)
-            .and_then(|parsed| Some(JsonToken::Boolean(parsed == "true")))
+            .map(|parsed| JsonToken::Boolean(parsed == "true"))
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
     /// try parsing [`JsonToken::Number`](JsonToken::Number).
     pub fn next_number(&mut self) -> ParseResult {
-        let maybe_float = self.parser.parse_int().and_then(|n| Some(n as f32));
+        let maybe_float = self.parser.parse_int().map(|n| n as f32);
 
         let maybe_decimal = maybe_float.and_then(|f| {
             // parse decimal point.
             self.parser
                 .match_char('.')
                 // parse leading decimal zeroes.
-                .and_then(|_| {
-                    Some(self.parser.match_while(|&ch| ch == '0').len() as i32)
-                })
+                .map(|_| self.parser.match_while(|&ch| ch == '0').len() as i32)
                 // parse decimal number.
                 .and_then(|total_zeroes| {
                     self.parser.parse_int().and_then(|number| {
@@ -116,7 +114,7 @@ impl JsonTokenLexer {
                 .is_some()
             {
                 let exponent = if self.parser.match_char('+').is_some() {
-                    self.parser.parse_uint().and_then(|n| Some(n as i32))
+                    self.parser.parse_uint().map(|n| n as i32)
                 } else {
                     self.parser.parse_int()
                 };
@@ -130,7 +128,7 @@ impl JsonTokenLexer {
         });
 
         maybe_exponent
-            .and_then(|number| Some(JsonToken::Number(number)))
+            .map(JsonToken::Number)
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
@@ -159,14 +157,14 @@ impl JsonTokenLexer {
         if self
             .trim_front()
             .next_token()
-            .and_then(|token| Ok(array.push(token)))
+            .map(|token| array.push(token))
             .is_ok()
         {
             // try parsing token, only if comma present.
             while self.trim_front().match_char(',').is_ok() {
                 self.trim_front()
                     .next_token()
-                    .and_then(|token| Ok(array.push(token)))
+                    .map(|token| array.push(token))
                     .or_else(|_| {
                         Err(self
                             .untrim_front()
@@ -214,16 +212,14 @@ impl JsonTokenLexer {
                 // try parsing 'JsonToken', error out if fails..
                 .next_token()
                 // insert 'key', 'JsonToken' to hashmap if 'value' parsed.
-                .and_then(|token| {
-                    Ok(hashmap.insert(string_key.clone(), token))
-                })?;
+                .map(|token| hashmap.insert(string_key.clone(), token))?;
 
             // try parsing json_key only if comma parsed.
             json_key = if self.trim_front().match_char(',').is_ok() {
                 // comma needs to be followed by a string.
                 self.trim_front()
                     .next_qstring()
-                    .and_then(|token| Ok(Some(token)))
+                    .map(|token| Some(token))
                     .or_else(|_| {
                         Err(self
                             .untrim_front()
@@ -315,15 +311,11 @@ impl JsonPropertyLexer {
     pub fn arrayindex(&mut self) -> Option<JsonProperty> {
         self.parser.match_char('[')?;
 
-        self.parser
-            .match_while(|&ch| ch.is_digit(10))
-            .parse()
-            .ok()
-            .and_then(|number| {
-                self.parser
-                    .match_char(']')
-                    .and_then(|_| Some(JsonProperty::Index(number)))
-            })
+        self.parser.parse_int().and_then(|number| {
+            self.parser
+                .match_char(']')
+                .and_then(|_| Some(JsonProperty::Index(number)))
+        })
     }
 
     /// try parsing [`JsonProperty::Keys`](JsonProperty::Keys).
@@ -388,7 +380,7 @@ impl Iterator for JsonPropertyLexer {
                 .or_else(|| self.dotproperty()),
             Some('[') => match self.parser.peek_at(self.parser.pointer + 1) {
                 Some('"') => self.bracketproperty(),
-                Some('0'..='9') => self.arrayindex(),
+                Some('-' | '0'..='9') => self.arrayindex(),
                 _ => return Some(Err(self.parser.pointer + 2)),
             },
             None => return None,
@@ -397,13 +389,4 @@ impl Iterator for JsonPropertyLexer {
 
         Some(maybe_property.ok_or(self.parser.pointer))
     }
-}
-
-fn total_digits(mut n: i32) -> i32 {
-    let mut digits = 0;
-    while n > 0 {
-        n /= 10;
-        digits += 1;
-    }
-    digits
 }

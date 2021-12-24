@@ -1,3 +1,4 @@
+//! AST enums.
 use super::query::JsonQuery;
 use std::{collections::HashMap, fmt};
 
@@ -8,7 +9,7 @@ pub enum JsonProperty {
     /// equivalent to `jsonObject["prop"]`
     Bracket(String),
     /// equivalent to `jsonArray[0]`
-    Index(usize),
+    Index(i32),
     /// [`JsonToken::Object`](JsonToken::Object) keys.
     Keys,
     /// [`JsonToken::Object`](JsonToken::Object) values.
@@ -69,7 +70,7 @@ impl JsonToken {
                                     token = t;
                                 } else {
                                     return Err(format!(
-                                        "key doesn't exist: '{}'",
+                                        " key doesn't exist: '{}'",
                                         string
                                     ));
                                 }
@@ -77,15 +78,18 @@ impl JsonToken {
                             _ => break Some(prop),
                         };
                     }
-                    JsonProperty::Index(index) => match token {
+                    JsonProperty::Index(i) => match token {
                         Self::Array(array) => {
-                            if let Some(t) = array.get(*index) {
+                            let index = if *i < 0 {
+                                array.len() as i32 + i
+                            } else {
+                                *i
+                            };
+
+                            if let Some(t) = array.get(index as usize) {
                                 token = t;
                             } else {
-                                return Err(format!(
-                                    "Invalid index: '{}'",
-                                    index
-                                ));
+                                return Err(format!(" Invalid index: '{}'", i));
                             }
                         }
                         _ => break Some(prop),
@@ -118,7 +122,7 @@ impl JsonToken {
                         Self::Object(hashmap) => {
                             let values = hashmap
                                 .values()
-                                .map(|t| t.to_owned())
+                                .map(|v| v.to_owned())
                                 .collect();
 
                             let q = JsonQuery::from(
@@ -131,7 +135,7 @@ impl JsonToken {
                         }
                         _ => {
                             return Err(vec![
-                                "'values' can only be applied on 'Object'."
+                                " 'values' can only be applied on 'Object'."
                                     .into(),
                                 format!("Found '{}' instead.", token.variant()),
                             ]
@@ -142,9 +146,12 @@ impl JsonToken {
                         Self::Array(array) => {
                             return Ok(Self::Number(array.len() as f32));
                         }
+                        Self::QString(string) => {
+                            return Ok(Self::Number(string.len() as f32));
+                        }
                         _ => {
                             return Err(vec![
-                                "'length' can only be applied on 'Array'."
+                                " 'length' can only be applied on 'Array' or 'String'."
                                     .into(),
                                 format!("Found '{}' instead.", token.variant()),
                             ]
@@ -168,7 +175,7 @@ impl JsonToken {
                         }
                         _ => {
                             return Err(vec![
-                                "'map' can only be applied on 'Array'.".into(),
+                                " 'map' can only be applied on 'Array'.".into(),
                                 format!("Found '{}' instead.", token.variant()),
                             ]
                             .join("\n"))
@@ -181,7 +188,7 @@ impl JsonToken {
         };
 
         if let Some(prop) = maybe_orphan {
-            Err(format!("Query structure doesn't match (near '{}').", prop))
+            Err(format!(" Query structure doesn't match (near '{}').", prop))
         } else {
             Ok(token.clone())
         }

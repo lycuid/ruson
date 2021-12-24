@@ -30,57 +30,40 @@ ruson [OPTIONS]... FILE
 `FILE` can be replaced with `-` (hyphen) or skipped entirely to read json text from standard input.
 
 ### ARGUMENTS
-`-p`, `--pretty`
-
-Print pretty formatted 'json'.
-
-`-t`, `--table`
-
-Print table formatted 'json'.
-
-`-q query`, `--query[=query]`
-
+_**-p**_, _**--pretty**_  
+ Print pretty formatted 'json'.  
+_**-t**_, _**--table**_  
+Print table formatted 'json'.  
+_**-q query**_, _**--query[=query]**_  
 Text for extracting desired _**json**_ subtree.
 _**query**_ text can be any valid javascript syntax of object property accessors or array indexing.
 
 # Query Syntax.
-Dot notation.
 ```sh
+# Dot notation.
 echo '{ "prop": "value" }' | ruson --query '.prop' # "value"
-```
 
-Bracket notation.
-```sh
+# Bracket notation.
 echo '{ "prop": "value" }' | ruson --query '["prop"]' # "value"
-```
 
-Array indexing.
-```sh
+# Array indexing.
 echo '{ "prop": [1, 2, 3, 4, 5] }' | ruson --query '.prop[2]' # 3
-```
 
-`.keys()` Function.
-```sh
+# '.keys()' function (valid for 'object').
 echo '{ "one": 1, "two": 2, "three": 3 }' | ruson -q '.keys()' # ["one", "two", "three"]
-```
 
-`.values()` function.
-```sh
+# '.values()' function (valid for 'object').
 echo '{ "one": 1, "two": 2, "three": 3 }' | ruson -q '.values()' # [1, 2, 3]
-```
 
-`.length()` function.
-```sh
+# '.length()' function (valid for 'array' and 'string').
 echo '[1, 2, 3]' | ruson -q '.length()' # 3
-```
 
-`.map()` function.
-```sh
+# '.map()' function (valid for 'array').
 echo '{ "list": [{ "id": 1 }, { "id": 2 }, { "id": 3 }] }' | ruson -q'.list.map(.id)' # [1, 2, 3]
 ```
 
 # EXAMPLES
-Download latest `xkcd` comic
+Download latest _**xkcd**_ comic
 ```sh
 curl https://xkcd.com/info.0.json | ruson -q ".img" | xargs wget
 ```

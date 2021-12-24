@@ -1,0 +1,21 @@
+name: test
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "src/**"
+jobs:
+  run-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone and checkout.
+        uses: actions/checkout@v2
+
+      - name: Install Rust toolchain.
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Running Tests. 
+        run: cargo test

@@ -1,3 +1,5 @@
+//! Error types (mainly parsing related), implements [`Display`](std::fmt::Display)
+//! for well formatted error messages.
 use crate::{
     error::ErrorString,
     parser::{Pointer, Position},
@@ -11,7 +13,7 @@ pub enum JsonErrorType {
 }
 
 pub struct JsonParseError {
-    pub string: String,
+    pub line: String,
     pub position: Position,
     pub error_type: JsonErrorType,
 }
@@ -26,10 +28,10 @@ impl std::fmt::Display for JsonParseError {
         )?;
 
         let start = std::cmp::max(0, self.position.col as i32 - 26);
-        let printable_string = &self.string.shorten(start as usize);
+        let printable_string = &self.line.shorten(start as usize);
         writeln!(f, "{}.\t| {}", self.position.row, printable_string)?;
 
-        let error_position = if self.string.len() > 50 {
+        let error_position = if self.line.len() > 50 {
             std::cmp::min(self.position.col, 25)
         } else {
             self.position.col
@@ -54,7 +56,7 @@ pub enum JsonQueryErrorType {
 }
 
 pub struct JsonQueryError {
-    pub string: String,
+    pub line: String,
     pub pointer: Pointer,
     pub error_type: JsonQueryErrorType,
 }
@@ -65,10 +67,10 @@ impl std::fmt::Display for JsonQueryError {
         writeln!(f, "{} JsonQuery {}", self.pointer, printable_error)?;
 
         let start = std::cmp::max(0, self.pointer as i32 - 26);
-        let printable_string = self.string.shorten(start as usize);
+        let printable_string = self.line.shorten(start as usize);
         writeln!(f, "near: '{}'", printable_string)?;
 
-        let error_position = if self.string.len() > 50 {
+        let error_position = if self.line.len() > 50 {
             std::cmp::min(self.pointer, 25)
         } else {
             self.pointer

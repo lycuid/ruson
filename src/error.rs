@@ -76,6 +76,6 @@ impl ErrorString for String {
     }
 
     fn errorfmt(&self) -> Self {
-        format!("{}:{}", std::env::args().next().unwrap(), self)
+        format!("{}:{}", env!("CARGO_PKG_NAME"), self)
     }
 }
