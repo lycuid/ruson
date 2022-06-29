@@ -1,24 +1,30 @@
-use crate::json::{query::JsonQuery, token::JsonProperty};
+use crate::json::{query::JsonQuery, token::Property};
 
 #[test]
 fn success_query() {
     let string = r#"[1].array.map(.obj.list.keys())[0].values()["property"].another_property["another_array"][90].length()"#;
-    let query1 = JsonQuery::from(vec![
-        JsonProperty::Index(1),
-        JsonProperty::Dot("array".into()),
-        JsonProperty::Map(JsonQuery::from(vec![
-            JsonProperty::Dot("obj".into()),
-            JsonProperty::Dot("list".into()),
-            JsonProperty::Keys,
-        ])),
-        JsonProperty::Index(0),
-        JsonProperty::Values,
-        JsonProperty::Bracket("property".into()),
-        JsonProperty::Dot("another_property".into()),
-        JsonProperty::Bracket("another_array".into()),
-        JsonProperty::Index(90),
-        JsonProperty::Length,
-    ]);
+    let query1 = vec![
+        Property::Index(1),
+        Property::Dot("array".into()),
+        Property::Map(
+            vec![
+                Property::Dot("obj".into()),
+                Property::Dot("list".into()),
+                Property::Keys,
+            ]
+            .iter()
+            .into(),
+        ),
+        Property::Index(0),
+        Property::Values,
+        Property::Bracket("property".into()),
+        Property::Dot("another_property".into()),
+        Property::Bracket("another_array".into()),
+        Property::Index(90),
+        Property::Length,
+    ]
+    .iter()
+    .into();
 
     let query2 = JsonQuery::new(string);
     assert!(query2.is_ok());

@@ -1,214 +1,159 @@
-//! AST enums.
+//! AST.
 use super::query::JsonQuery;
 use std::{collections::HashMap, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum JsonProperty {
+pub enum Property {
     /// equivalent to `jsonObject.prop`
     Dot(String),
     /// equivalent to `jsonObject["prop"]`
     Bracket(String),
     /// equivalent to `jsonArray[0]`
     Index(i32),
-    /// [`JsonToken::Object`](JsonToken::Object) keys.
+    /// [`Json::Object`](Json::Object) keys.
     Keys,
-    /// [`JsonToken::Object`](JsonToken::Object) values.
+    /// [`Json::Object`](Json::Object) values.
     Values,
-    /// length of [`JsonToken::Array`](JsonToken::Array).
+    /// length of [`Json::Array`](Json::Array).
     Length,
     /// map function.
     Map(JsonQuery),
 }
 
-impl std::fmt::Display for JsonProperty {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for Property {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Dot(string) => write!(f, ".{}", string),
-            Self::Bracket(string) => write!(f, "[\"{}\"]", string),
-            Self::Index(index) => write!(f, "[{}]", index),
-            _ => write!(f, "{:?}", format!("{:?}", self).to_ascii_lowercase()),
+            Self::Dot(s) => write!(f, ".{}", s),
+            Self::Bracket(s) => write!(f, "[\"{}\"]", s),
+            Self::Index(i) => write!(f, "[{}]", i),
+            _ => write!(f, "{}", format!(".{:?}()", self).to_ascii_lowercase()),
+        }
+    }
+}
+
+impl Property {
+    #[inline(always)]
+    fn invalid(&self) -> String {
+        match self {
+            Self::Dot(_) | Self::Bracket(_) => {
+                "Dot/Bracket properties are only valid on 'Object'".into()
+            }
+            Self::Index(_) => "Indexing is only valid on 'Array'".into(),
+            Self::Keys | Self::Values => {
+                format!("'{}' can only be applied on 'Object'", self)
+            }
+            Self::Length => {
+                format!("'{}' can only be applied on 'Array' or 'String'", self)
+            }
+            Self::Map(_) => {
+                format!("'{}' can only be applied on 'Array'", self)
+            }
         }
     }
 }
 
 #[derive(Clone, PartialEq)]
-pub enum JsonToken {
+pub enum Json {
     Null,
     Boolean(bool),
     Number(f32),
     QString(String),
-    Array(Vec<JsonToken>),
-    Object(HashMap<String, JsonToken>),
+    Array(Vec<Json>),
+    Object(HashMap<String, Json>),
 }
 
-impl JsonToken {
-    fn variant(&self) -> String {
+impl Json {
+    #[inline(always)]
+    fn variant(&self) -> &str {
         match self {
-            Self::Null => format!("Null"),
-            Self::Boolean(_) => format!("Boolean"),
-            Self::Number(_) => format!("Number"),
-            Self::QString(_) => format!("String"),
-            Self::Array(_) => format!("Array"),
-            Self::Object(_) => format!("Object"),
+            Self::Null => "Null",
+            Self::Boolean(_) => "Boolean",
+            Self::Number(_) => "Number",
+            Self::QString(_) => "String",
+            Self::Array(_) => "Array",
+            Self::Object(_) => "Object",
         }
     }
 
-    /// This is used for extracting a `JsonToken` value
+    #[inline(always)]
+    fn invalid(&self, prop: &Property) -> String {
+        format!(" {}, found '{}' instead.", prop.invalid(), self.variant())
+    }
+
+    pub fn consume(&mut self, property: &Property) -> Result<&Self, String> {
+        *self = match property {
+            Property::Dot(s) | Property::Bracket(s) => match self {
+                Self::Object(hashmap) => hashmap
+                    .get(s)
+                    .and_then(|token| Some(token.clone()))
+                    .ok_or(format!(" key doesn't exist: '{}'", s)),
+                _ => Err(self.invalid(property)),
+            },
+            Property::Index(i) => match self {
+                Self::Array(array) => array
+                    .get(*i as usize)
+                    .and_then(|token| Some(token.clone()))
+                    .ok_or(format!(
+                        " Invalid index {} (for array of len {})",
+                        i,
+                        array.len()
+                    )),
+                _ => Err(self.invalid(property)),
+            },
+            Property::Keys => match self {
+                Self::Object(hashmap) => Ok(Self::Array(
+                    hashmap.keys().map(|k| Json::QString(k.clone())).collect(),
+                )),
+                _ => Err(self.invalid(property)),
+            },
+            Property::Values => match self {
+                Self::Object(hashmap) => Ok(Self::Array(
+                    hashmap.values().map(|v| v.clone()).collect(),
+                )),
+                _ => Err(self.invalid(property)),
+            },
+            Property::Length => match self {
+                Self::Array(array) => Ok(Self::Number(array.len() as f32)),
+                Self::QString(string) => Ok(Self::Number(string.len() as f32)),
+                _ => Err(self.invalid(property)),
+            },
+            Property::Map(query) => match self {
+                Self::Array(array) => Ok(Self::Array(
+                    array
+                        .iter_mut()
+                        .map(|token| token.apply(query))
+                        .collect::<Result<Vec<Json>, String>>()?,
+                )),
+                _ => Err(self.invalid(property)),
+            },
+        }?;
+        Ok(self)
+    }
+
+    /// This is used for extracting a `Json` value
     /// that matches the given [`JsonQuery`](JsonQuery), from the current object.
-    pub fn apply(&self, query: &JsonQuery) -> Result<Self, String> {
-        let mut token = self;
-        let mut properties = query.properties();
-
-        let maybe_orphan = loop {
-            if let Some(prop) = properties.next() {
-                match prop {
-                    JsonProperty::Dot(string)
-                    | JsonProperty::Bracket(string) => {
-                        match token {
-                            Self::Object(hashmap) => {
-                                if let Some(t) = hashmap.get(string) {
-                                    token = t;
-                                } else {
-                                    return Err(format!(
-                                        " key doesn't exist: '{}'",
-                                        string
-                                    ));
-                                }
-                            }
-                            _ => break Some(prop),
-                        };
-                    }
-                    JsonProperty::Index(i) => match token {
-                        Self::Array(array) => {
-                            let index = if *i < 0 {
-                                array.len() as i32 + i
-                            } else {
-                                *i
-                            };
-
-                            if let Some(t) = array.get(index as usize) {
-                                token = t;
-                            } else {
-                                return Err(format!(" Invalid index: '{}'", i));
-                            }
-                        }
-                        _ => break Some(prop),
-                    },
-                    JsonProperty::Keys => match token {
-                        Self::Object(hashmap) => {
-                            let keys = hashmap
-                                .keys()
-                                .map(|s| JsonToken::QString(s.clone()))
-                                .collect();
-
-                            let q = JsonQuery::from(
-                                properties
-                                    .map(|prop| prop.to_owned())
-                                    .collect::<Vec<JsonProperty>>(),
-                            );
-
-                            return Self::Array(keys).apply(&q);
-                        }
-                        _ => {
-                            return Err(vec![
-                                "'keys' can only be applied on 'Object'."
-                                    .into(),
-                                format!("Found '{}' instead.", token.variant()),
-                            ]
-                            .join("\n"))
-                        }
-                    },
-                    JsonProperty::Values => match token {
-                        Self::Object(hashmap) => {
-                            let values = hashmap
-                                .values()
-                                .map(|v| v.to_owned())
-                                .collect();
-
-                            let q = JsonQuery::from(
-                                properties
-                                    .map(|prop| prop.to_owned())
-                                    .collect::<Vec<JsonProperty>>(),
-                            );
-
-                            return Self::Array(values).apply(&q);
-                        }
-                        _ => {
-                            return Err(vec![
-                                " 'values' can only be applied on 'Object'."
-                                    .into(),
-                                format!("Found '{}' instead.", token.variant()),
-                            ]
-                            .join("\n"))
-                        }
-                    },
-                    JsonProperty::Length => match token {
-                        Self::Array(array) => {
-                            return Ok(Self::Number(array.len() as f32));
-                        }
-                        Self::QString(string) => {
-                            return Ok(Self::Number(string.len() as f32));
-                        }
-                        _ => {
-                            return Err(vec![
-                                " 'length' can only be applied on 'Array' or 'String'."
-                                    .into(),
-                                format!("Found '{}' instead.", token.variant()),
-                            ]
-                            .join("\n"))
-                        }
-                    },
-                    JsonProperty::Map(query) => match token {
-                        Self::Array(array) => {
-                            let arr = array
-                                .iter()
-                                .map(|json| json.apply(query))
-                                .collect::<Result<Vec<JsonToken>, String>>()?;
-
-                            let q = JsonQuery::from(
-                                properties
-                                    .map(|prop| prop.to_owned())
-                                    .collect::<Vec<JsonProperty>>(),
-                            );
-
-                            return Self::Array(arr).apply(&q);
-                        }
-                        _ => {
-                            return Err(vec![
-                                " 'map' can only be applied on 'Array'.".into(),
-                                format!("Found '{}' instead.", token.variant()),
-                            ]
-                            .join("\n"))
-                        }
-                    },
-                };
-            } else {
-                break None;
-            }
-        };
-
-        if let Some(prop) = maybe_orphan {
-            Err(format!(" Query structure doesn't match (near '{}').", prop))
-        } else {
-            Ok(token.clone())
+    pub fn apply(&mut self, query: &JsonQuery) -> Result<Self, String> {
+        for property in query.properties() {
+            self.consume(property)?;
         }
+        Ok(self.clone())
     }
 }
 
-impl fmt::Display for JsonToken {
+impl fmt::Display for Json {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Self::Null => write!(f, "null"),
-            Self::Boolean(value) => write!(f, "{}", value),
-            Self::Number(value) => write!(f, "{}", value),
-            Self::QString(value) => write!(f, "\"{}\"", value),
+            Self::Boolean(boolean) => write!(f, "{}", boolean),
+            Self::Number(float) => write!(f, "{}", float),
+            Self::QString(string) => write!(f, "\"{}\"", string),
             Self::Array(array) => write!(f, "{:?}", array),
-            Self::Object(map) => write!(f, "{:?}", map),
+            Self::Object(hashmap) => write!(f, "{:?}", hashmap),
         }
     }
 }
 
-impl fmt::Debug for JsonToken {
+impl fmt::Debug for Json {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }

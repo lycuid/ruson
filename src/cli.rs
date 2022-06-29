@@ -5,14 +5,14 @@ pub type Lines = Vec<String>;
 
 /// Command line Flag (doesn't accept argument).
 #[derive(Debug, Clone)]
-pub struct CliFlag<'a> {
-    pub short: &'a str,
-    pub long: Option<&'a str>,
+pub struct CliFlag {
+    pub short: &'static str,
+    pub long: Option<&'static str>,
     /// lines of string, for nicer display.
     pub description: Lines,
 }
 
-impl<'a> CliFlag<'a> {
+impl CliFlag {
     /// exact match of either `short` or `long` argument.
     pub fn matches(&self, arg: &str) -> bool {
         [self.short, self.long.unwrap_or("")].contains(&arg)
@@ -21,16 +21,16 @@ impl<'a> CliFlag<'a> {
 
 /// Command line Argument Option (always accept argument).
 #[derive(Debug, Clone)]
-pub struct CliOption<'a> {
+pub struct CliOption {
     /// Display name for word argument in the Program Usage string.
     /// example: -f, --file &lt;name&gt;
-    pub name: &'a str,
+    pub name: &'static str,
     /// default value for the current option.
     pub default: Option<String>,
-    pub flag: CliFlag<'a>,
+    pub flag: CliFlag,
 }
 
-impl<'a> CliOption<'a> {
+impl CliOption {
     /// parse long option with syntax `--option=value` and return `value`.
     pub fn assoc_value(&self, arg: &str) -> Option<String> {
         let mut argparser = Parser::new(&arg);
@@ -46,18 +46,18 @@ impl<'a> CliOption<'a> {
 }
 
 #[derive(Debug, Clone)]
-pub struct Cli<'a> {
-    name: &'a str,
+pub struct Cli {
+    name: &'static str,
     description: Lines,
     footer: Lines,
     /// using `Vec` instead of `HashMap` to preserve order.
-    flags: Vec<CliFlag<'a>>,
+    flags: Vec<CliFlag>,
     /// using `Vec` instead of `HashMap` to preserve order.
-    options: Vec<CliOption<'a>>,
+    options: Vec<CliOption>,
 }
 
-impl<'a> Cli<'a> {
-    pub fn new(name: &'a str) -> Self {
+impl Cli {
+    pub fn new(name: &'static str) -> Self {
         Self {
             name,
             description: vec![],
@@ -88,12 +88,12 @@ impl<'a> Cli<'a> {
         self
     }
 
-    pub fn add_flag(&mut self, flag: CliFlag<'a>) -> &mut Self {
+    pub fn add_flag(&mut self, flag: CliFlag) -> &mut Self {
         self.flags.push(flag);
         self
     }
 
-    pub fn add_option(&mut self, option: CliOption<'a>) -> &mut Self {
+    pub fn add_option(&mut self, option: CliOption) -> &mut Self {
         self.options.push(option);
         self
     }
@@ -112,7 +112,7 @@ impl<'a> Cli<'a> {
         &self,
         args: &mut I,
         flags: &mut Vec<String>,
-        options: &mut std::collections::HashMap<&'a str, String>,
+        options: &mut std::collections::HashMap<&'static str, String>,
     ) -> Result<Option<String>, String> {
         // populating with options that have default value.
         for option in self.options.iter() {
@@ -205,7 +205,7 @@ impl<'a> Cli<'a> {
                             }
                             // return `Err("Invalid flag")`, if doesn't match
                             // any flag or option.
-                            return Err(format!("Invalid flag: '{}'.", opt));
+                            return Err(format!(" Invalid flag: '{}'.", opt));
                         }
                     }
                 },
@@ -218,7 +218,7 @@ impl<'a> Cli<'a> {
     }
 }
 
-impl<'a> std::fmt::Display for Cli<'a> {
+impl std::fmt::Display for Cli {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "USAGE: {} [FLAGS|OPTIONS]... FILE", self.name)?;
 

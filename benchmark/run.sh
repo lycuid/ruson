@@ -11,7 +11,7 @@ run() {
   JSONFILE=$1
   BANNER=$2
 
-  TIME=$(time $CMD "$JSONFILE" &>/dev/null 2>&1)
+  TIME=$(time $CMD < "$JSONFILE" &>/dev/null 2>&1)
   if [ $? -ne 0 ]; then
     echo "Command Failed for $2."
     return

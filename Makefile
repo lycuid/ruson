@@ -1,31 +1,30 @@
-include config.mk
+NAME=$(shell sed -En 's/name[^\"]+\"([^\"]+).*$$/\1/p' Cargo.toml)
+VERSION=$(shell sed -En 's/version\ ?\=\ ?\"([^\"]+).*$$/\1/p' Cargo.toml)
+AUTHOR=$(shell sed -En 's/author[^\"]+\"([^\"]+).*$$/\1/p' Cargo.toml)
 
-build: fmt clean
-	cargo build --release $(CARGO_FLAGS)
+BIN=target/release/$(NAME)
+PREFIX=/usr/local
+BINPREFIX=$(PREFIX)/bin
+MANPREFIX=$(PREFIX)/share/man/man1
 
-run:
-	cargo run $(CARGO_FLAGS)
+BENCHMARK_URLS=https://api.github.com/repos/rust-lang/rust          \
+               https://api.github.com/repos/rust-lang/rust/commits  \
+               https://api.github.com/repos/torvalds/linux          \
+               https://api.github.com/repos/torvalds/linux/commits
 
-test: fmt clean
-	cargo test $(CARGO_FLAGS)
-
-doc: fmt clean
-	cargo doc $(CARGO_FLAGS)
-
-fmt:
+build:
 	cargo fmt
-
-clean:
 	cargo clean
-	rm -rf Cargo.lock
+	cargo build --release $(CARGO_FLAGS)
 
 readme: src/lib.rs
 	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs > README.md
 
-benchmark: config.mk
+.PHONY: benchmark
+benchmark:
 	./benchmark/run.sh $(BIN) -- $(BENCHMARK_URLS)
 
-preinstall: config.mk
+preinstall:
 	mkdir -p $(DESTDIR)$(BINPREFIX)
 	mkdir -p $(DESTDIR)$(MANPREFIX)
 
@@ -42,5 +41,3 @@ install: $(BIN) preinstall
 uninstall:
 	rm $(DESTDIR)$(BINPREFIX)/$(NAME)
 	rm $(DESTDIR)$(MANPREFIX)/$(NAME).1.gz
-
-.PHONY: run fmt clean

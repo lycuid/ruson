@@ -1,16 +1,16 @@
-use crate::json::{error::JsonErrorType, token::JsonToken, JsonTokenLexer};
+use crate::json::{error::JsonErrorType, lexer::JsonLexer, token::Json};
 
 #[test]
 fn success_null() {
-    let mut json_lexer = JsonTokenLexer::new("null");
-    assert_eq!(json_lexer.next_null().unwrap(), JsonToken::Null);
+    let mut json_lexer = JsonLexer::new("null");
+    assert_eq!(json_lexer.next_null().unwrap(), Json::Null);
 }
 
 #[test]
 fn error_null() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for xs in ["Null", "NULL"].iter() {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         match &json_lexer.next_null() {
             Ok(_) => assert!(false),
             Err((ref error_type, _)) => {
@@ -22,21 +22,18 @@ fn error_null() {
 
 #[test]
 fn success_bool() {
-    let mut json_lexer = JsonTokenLexer::new("true");
-    assert_eq!(json_lexer.next_boolean().unwrap(), JsonToken::Boolean(true));
+    let mut json_lexer = JsonLexer::new("true");
+    assert_eq!(json_lexer.next_boolean().unwrap(), Json::Boolean(true));
 
-    let mut json_lexer = JsonTokenLexer::new("false");
-    assert_eq!(
-        json_lexer.next_boolean().unwrap(),
-        JsonToken::Boolean(false)
-    );
+    let mut json_lexer = JsonLexer::new("false");
+    assert_eq!(json_lexer.next_boolean().unwrap(), Json::Boolean(false));
 }
 
 #[test]
 fn error_bool() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for xs in ["False", "True"].iter() {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         match &json_lexer.next_boolean() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
@@ -48,33 +45,33 @@ fn error_bool() {
 
 #[test]
 fn success_number() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for (xs, j) in [
-        ("10", JsonToken::Number(10.0)),
-        ("-91", JsonToken::Number(-91.0)),
-        ("-9823.0", JsonToken::Number(-9823.0)),
-        ("0.9832", JsonToken::Number(0.9832)),
-        ("-1.8923", JsonToken::Number(-1.8923)),
-        ("40.2", JsonToken::Number(40.2)),
-        ("40.", JsonToken::Number(40.0)),
-        ("40 ", JsonToken::Number(40.0)),
-        ("-2.12e+12", JsonToken::Number(-2.12e+12)),
-        ("-2.12e-12", JsonToken::Number(-2.12e-12)),
-        ("-2.12e12", JsonToken::Number(-2.12e12)),
-        ("2.12E+12", JsonToken::Number(2.12e+12)),
-        ("2.12E-12", JsonToken::Number(2.12E-12)),
-        ("2.12E12", JsonToken::Number(2.12E12)),
+        ("10", Json::Number(10.0)),
+        ("-91", Json::Number(-91.0)),
+        ("-9823.0", Json::Number(-9823.0)),
+        ("0.9832", Json::Number(0.9832)),
+        ("-1.8923", Json::Number(-1.8923)),
+        ("40.2", Json::Number(40.2)),
+        ("40.", Json::Number(40.0)),
+        ("40 ", Json::Number(40.0)),
+        ("-2.12e+12", Json::Number(-2.12e+12)),
+        ("-2.12e-12", Json::Number(-2.12e-12)),
+        ("-2.12e12", Json::Number(-2.12e12)),
+        ("2.12E+12", Json::Number(2.12e+12)),
+        ("2.12E-12", Json::Number(2.12E-12)),
+        ("2.12E12", Json::Number(2.12E12)),
     ]
     .iter()
     {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         assert_eq!(json_lexer.next_number().unwrap(), *j);
     }
 }
 
 #[test]
 fn error_number() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for number in [
         ".10",
         "-.10",
@@ -85,7 +82,7 @@ fn error_number() {
     ]
     .iter()
     {
-        json_lexer = JsonTokenLexer::new(number);
+        json_lexer = JsonLexer::new(number);
         match &json_lexer.next_number() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
@@ -97,36 +94,34 @@ fn error_number() {
 
 #[test]
 fn success_string() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for (xs, j) in [
-        (r#""string""#, JsonToken::QString("string".into())),
+        (r#""string""#, Json::QString("string".into())),
         (
             r#""string with spaces""#,
-            JsonToken::QString("string with spaces".into()),
+            Json::QString("string with spaces".into()),
         ),
         (
             r#""string with 'quotes'""#,
-            JsonToken::QString("string with 'quotes'".into()),
+            Json::QString("string with 'quotes'".into()),
         ),
         (
             r#""string with \"escaped double quotes\"""#,
-            JsonToken::QString(
-                "string with \\\"escaped double quotes\\\"".into(),
-            ),
+            Json::QString("string with \\\"escaped double quotes\\\"".into()),
         ),
     ]
     .iter()
     {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         assert_eq!(json_lexer.next_qstring().unwrap(), *j);
     }
 }
 
 #[test]
 fn error_string() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for string in [r#"klasd"#, r#""#].iter() {
-        json_lexer = JsonTokenLexer::new(string);
+        json_lexer = JsonLexer::new(string);
         match &json_lexer.next_qstring() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
@@ -139,21 +134,21 @@ fn error_string() {
 #[test]
 fn success_array() {
     let xs = r#"["string", null, 1.03, true]"#;
-    let mut json_lexer = JsonTokenLexer::new(xs);
+    let mut json_lexer = JsonLexer::new(xs);
     assert_eq!(
         json_lexer.next_array().unwrap(),
-        JsonToken::Array(vec![
-            JsonToken::QString("string".into()),
-            JsonToken::Null,
-            JsonToken::Number(1.03),
-            JsonToken::Boolean(true)
+        Json::Array(vec![
+            Json::QString("string".into()),
+            Json::Null,
+            Json::Number(1.03),
+            Json::Boolean(true)
         ])
     );
 }
 
 #[test]
 fn error_array() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for (xs, err) in [
         // multple trailing commas.
         (r#"[1, 2, 3,]"#, JsonErrorType::TrailingCommaError),
@@ -165,7 +160,7 @@ fn error_array() {
     ]
     .iter()
     {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         match &json_lexer.next_array() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
@@ -181,19 +176,19 @@ fn success_object() {
         "key3": 1.03,
         "key4": true
     }"#;
-    let mut json_lexer = JsonTokenLexer::new(xs);
+    let mut json_lexer = JsonLexer::new(xs);
 
     let mut map = std::collections::HashMap::new();
-    map.insert("key1".into(), JsonToken::QString("string".into()));
-    map.insert("key2".into(), JsonToken::Null);
-    map.insert("key3".into(), JsonToken::Number(1.03));
-    map.insert("key4".into(), JsonToken::Boolean(true));
-    assert_eq!(json_lexer.next_object().unwrap(), JsonToken::Object(map));
+    map.insert("key1".into(), Json::QString("string".into()));
+    map.insert("key2".into(), Json::Null);
+    map.insert("key3".into(), Json::Number(1.03));
+    map.insert("key4".into(), Json::Boolean(true));
+    assert_eq!(json_lexer.next_object().unwrap(), Json::Object(map));
 }
 
 #[test]
 fn error_object() {
-    let mut json_lexer: JsonTokenLexer;
+    let mut json_lexer: JsonLexer;
     for (xs, err) in [
         // single trailing comma.
         (
@@ -228,7 +223,7 @@ fn error_object() {
     ]
     .iter()
     {
-        json_lexer = JsonTokenLexer::new(xs);
+        json_lexer = JsonLexer::new(xs);
         match &json_lexer.next_object() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),

@@ -1,21 +1,19 @@
 //! list of properties (chronological) needed to extract sub tree from `json`.
 use super::{
     error::{JsonQueryError, JsonQueryErrorType},
-    token::JsonProperty,
-    JsonPropertyLexer,
+    lexer::PropertyLexer,
+    token::Property,
 };
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct JsonQuery {
-    properties: Vec<JsonProperty>,
+    properties: Vec<Property>,
 }
 
 impl JsonQuery {
     pub fn new(s: &str) -> Result<Self, JsonQueryError> {
         let mut properties = Vec::new();
-        let mut lexer = JsonPropertyLexer::new(s);
-
-        while let Some(maybe_property) = lexer.next() {
+        for maybe_property in PropertyLexer::new(s) {
             let property = maybe_property.or_else(|pointer| {
                 Err(JsonQueryError {
                     line: s.into(),
@@ -23,17 +21,20 @@ impl JsonQuery {
                     error_type: JsonQueryErrorType::SyntaxError,
                 })
             })?;
-            properties.push(property);
+            properties.push(property)
         }
-
-        Ok(Self::from(properties))
+        Ok(Self { properties })
     }
 
-    pub fn from(properties: Vec<JsonProperty>) -> Self {
-        Self { properties }
-    }
-
-    pub fn properties<'a>(&'a self) -> std::slice::Iter<'a, JsonProperty> {
+    pub fn properties<'a>(&'a self) -> std::slice::Iter<'a, Property> {
         self.properties.iter()
+    }
+}
+
+impl From<std::slice::Iter<'_, Property>> for JsonQuery {
+    fn from(it: std::slice::Iter<'_, Property>) -> Self {
+        Self {
+            properties: it.map(|prop| prop.clone()).collect(),
+        }
     }
 }

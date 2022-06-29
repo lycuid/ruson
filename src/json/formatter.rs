@@ -1,31 +1,33 @@
 //! Json Formatter: can call `dump()`, returns string of formatted json token.
-use super::token::JsonToken;
-use crate::utils::Formatter;
+use super::token::Json;
+
+pub trait Formatter {
+    type Token;
+    fn dump(&self, token: &Self::Token) -> String;
+}
 
 pub struct RawJson {}
 
 impl Formatter for RawJson {
-    type Token = JsonToken;
+    type Token = Json;
     fn dump(&self, token: &Self::Token) -> String {
         format!("{}", token)
     }
 }
 
 pub struct PrettyJson<'a> {
-    pub padding: &'a str,
+    pub indent: &'a str,
 }
 
 impl<'a> PrettyJson<'a> {
-    fn prettified(&self, s: &mut String, token: &JsonToken, depth: usize) {
+    fn prettified(&self, s: &mut String, token: &Json, depth: usize) {
         match token {
-            JsonToken::Array(tokens) => {
+            Json::Array(tokens) => {
                 let mut tokens = tokens.iter();
 
+                s.push_str("[\n");
                 if let Some(token) = tokens.next() {
-                    s.push_str(&format!(
-                        "[\n{}",
-                        self.indented(depth + 1, &"")
-                    ));
+                    s.push_str(&format!("{}", self.indented(depth + 1, &"")));
                     self.prettified(s, token, depth + 1);
                 }
 
@@ -38,16 +40,14 @@ impl<'a> PrettyJson<'a> {
                 }
                 s.push_str(&format!("\n{}", self.indented(depth, &"]")));
             }
-            JsonToken::Object(pairs) => {
+            Json::Object(pairs) => {
                 let mut pairs = pairs.iter();
 
+                s.push_str("{\n");
                 if let Some((key, token)) = pairs.next() {
                     s.push_str(&format!(
-                        "{{\n{}: ",
-                        self.indented(
-                            depth + 1,
-                            &JsonToken::QString(key.into())
-                        )
+                        "{}: ",
+                        self.indented(depth + 1, &Json::QString(key.into()))
                     ));
                     self.prettified(s, token, depth + 1);
                 }
@@ -55,10 +55,7 @@ impl<'a> PrettyJson<'a> {
                 for (key, token) in pairs {
                     s.push_str(&format!(
                         ",\n{}: ",
-                        self.indented(
-                            depth + 1,
-                            &JsonToken::QString(key.into())
-                        )
+                        self.indented(depth + 1, &Json::QString(key.into()))
                     ));
                     self.prettified(s, token, depth + 1)
                 }
@@ -69,12 +66,12 @@ impl<'a> PrettyJson<'a> {
     }
 
     fn indented(&self, depth: usize, s: &dyn std::fmt::Display) -> String {
-        format!("{}{}", vec![self.padding; depth].join(""), s)
+        format!("{}{}", vec![self.indent; depth].join(""), s)
     }
 }
 
 impl<'a> Formatter for PrettyJson<'a> {
-    type Token = JsonToken;
+    type Token = Json;
     fn dump(&self, token: &Self::Token) -> String {
         let mut string = String::new();
         self.prettified(&mut string, token, 0);
@@ -85,10 +82,10 @@ impl<'a> Formatter for PrettyJson<'a> {
 pub struct TableJson {}
 
 impl Formatter for TableJson {
-    type Token = JsonToken;
+    type Token = Json;
     fn dump(&self, token: &Self::Token) -> String {
         match token {
-            JsonToken::Array(array) => {
+            Json::Array(array) => {
                 let mut string = String::new();
                 let mut iter = array.iter();
                 if let Some(value) = iter.next() {
@@ -99,7 +96,7 @@ impl Formatter for TableJson {
                 }
                 string
             }
-            JsonToken::Object(map) => {
+            Json::Object(map) => {
                 let mut string = String::new();
                 let mut iter = map.iter();
                 if let Some((key, value)) = iter.next() {
