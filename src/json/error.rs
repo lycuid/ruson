@@ -2,7 +2,7 @@
 //! for well formatted error messages.
 use crate::{
     error::ErrorString,
-    parser::{Pointer, Position},
+    parser::{Cursor, Position},
 };
 
 #[derive(Debug, PartialEq)]
@@ -57,23 +57,23 @@ pub enum JsonQueryErrorType {
 
 pub struct JsonQueryError {
     pub line: String,
-    pub pointer: Pointer,
+    pub cursor: Cursor,
     pub error_type: JsonQueryErrorType,
 }
 
 impl std::fmt::Display for JsonQueryError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         let printable_error = format!("{:?}", self.error_type).uncamelize();
-        writeln!(f, "{} JsonQuery {}", self.pointer, printable_error)?;
+        writeln!(f, "{} JsonQuery {}", self.cursor, printable_error)?;
 
-        let start = std::cmp::max(0, self.pointer as i32 - 26);
+        let start = std::cmp::max(0, self.cursor as i32 - 26);
         let printable_string = self.line.shorten(start as usize);
         writeln!(f, "near: '{}'", printable_string)?;
 
         let error_position = if self.line.len() > 50 {
-            std::cmp::min(self.pointer, 25)
+            std::cmp::min(self.cursor, 25)
         } else {
-            self.pointer
+            self.cursor
         };
         write!(
             f,

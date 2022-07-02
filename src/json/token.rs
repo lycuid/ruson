@@ -130,13 +130,14 @@ impl Json {
         Ok(self)
     }
 
-    /// This is used for extracting a `Json` value
-    /// that matches the given [`JsonQuery`](JsonQuery), from the current object.
-    pub fn apply(&mut self, query: &JsonQuery) -> Result<Self, String> {
+    /// This is used for extracting a `Json` value that matches the given
+    /// [`JsonQuery`](JsonQuery), from the current object.
+    pub fn apply(&self, query: &JsonQuery) -> Result<Self, String> {
+        let mut token = self.clone();
         for property in query.properties() {
-            self.consume(property)?;
+            token.consume(&property)?;
         }
-        Ok(self.clone())
+        Ok(token)
     }
 }
 

@@ -40,7 +40,7 @@ impl CliOption {
             .and_then(|_| argparser.match_char('='))
             .or(None)
             .and_then(|_| {
-                Some(argparser.stack[argparser.pointer..].iter().collect())
+                Some(argparser.stack[argparser.cursor..].iter().collect())
             })
     }
 }

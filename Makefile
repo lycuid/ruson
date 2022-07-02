@@ -18,7 +18,7 @@ build:
 	cargo build --release $(CARGO_FLAGS)
 
 readme: src/lib.rs
-	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs > README.md
+	sed -En 's/\/\/\!\s?(.*)/\1/p' src/lib.rs | tee README.md | xclip -selection clipboard
 
 .PHONY: benchmark
 benchmark:

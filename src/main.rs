@@ -57,8 +57,8 @@ fn main() -> Result<(), String> {
         let mut buffer = String::new();
         io::stdin()
             .read_to_string(&mut buffer)
-            .or(Err(" cannot read from stdin."))?;
-        Ok(buffer)
+            .and(Ok(buffer))
+            .or(Err(" cannot read from stdin.".into()))
     }
     .unwrap_or_exit();
 
@@ -69,9 +69,7 @@ fn main() -> Result<(), String> {
         .apply(&json_query)
         .unwrap_or_exit();
 
-    println!("{}", json_formatter.dump(&json_token));
-
-    Ok(())
+    Ok(println!("{}", json_formatter.dump(&json_token)))
 }
 
 #[inline(always)]

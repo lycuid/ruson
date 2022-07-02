@@ -1,6 +1,6 @@
 //! Text parsing utility struct.
 pub type Stack = Vec<char>;
-pub type Pointer = usize;
+pub type Cursor = usize;
 
 #[derive(Debug, Copy, Clone)]
 pub struct Position {
@@ -23,38 +23,38 @@ impl Position {
 #[derive(Debug)]
 pub struct Parser {
     pub stack: Stack,
-    pub pointer: Pointer,
+    pub cursor: Cursor,
 }
 
 impl Parser {
     pub fn new(s: &str) -> Self {
         Self {
             stack: s.chars().collect(),
-            pointer: 0,
+            cursor: 0,
         }
     }
 
     pub fn peek(&self) -> Option<&char> {
-        self.peek_at(self.pointer)
+        self.peek_at(self.cursor)
     }
 
-    pub fn peek_at(&self, ptr: Pointer) -> Option<&char> {
-        self.stack.get(ptr)
+    pub fn peek_at(&self, cursor: Cursor) -> Option<&char> {
+        self.stack.get(cursor)
     }
 
     pub fn match_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
-        let string: String = self.stack[self.pointer..]
+        let string: String = self.stack[self.cursor..]
             .iter()
             .take_while(|&ch| (f)(ch))
             .collect();
-        self.pointer += string.chars().count();
+        self.cursor += string.chars().count();
         string
     }
 
     pub fn match_char(&mut self, x: char) -> Option<char> {
         if let Some(&ch) = self.peek() {
             if x == ch {
-                self.pointer += 1;
+                self.cursor += 1;
                 return Some(x);
             }
         }
@@ -63,7 +63,7 @@ impl Parser {
 
     pub fn match_string(&mut self, ys: &str) -> Option<String> {
         let mut cs = ys.chars();
-        let mut next_index: usize = self.pointer;
+        let mut next_index: usize = self.cursor;
 
         while let Some(c) = cs.next() {
             if let Some(&x) = self.stack.get(next_index) {
@@ -73,7 +73,7 @@ impl Parser {
             }
             next_index += 1;
         }
-        self.pointer = next_index;
+        self.cursor = next_index;
 
         Some(ys.into())
     }
@@ -92,8 +92,8 @@ impl Parser {
         self.stack.iter().collect()
     }
 
-    pub fn position(&self, ptr: Pointer) -> Position {
-        let string: String = self.stack.iter().take(ptr).collect();
+    pub fn position(&self, cursor: Cursor) -> Position {
+        let string: String = self.stack.iter().take(cursor).collect();
 
         Position {
             row: string.lines().count(),

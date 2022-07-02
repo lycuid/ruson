@@ -1,3 +1,4 @@
+//! Utilities for tokenizing raw json string.
 use super::{
     error::{JsonErrorType, JsonParseError},
     query::JsonQuery,
@@ -5,7 +6,7 @@ use super::{
 };
 use crate::parser::*;
 
-pub type ParseError = (JsonErrorType, Pointer);
+pub type ParseError = (JsonErrorType, Cursor);
 pub type ParseResult = Result<Json, ParseError>;
 
 #[derive(Debug)]
@@ -21,22 +22,24 @@ impl JsonLexer {
     }
 
     pub fn tokenize(&mut self) -> Result<Json, JsonParseError> {
-        self.trim_front().next_token().or_else(|(error_type, ptr)| {
-            let position = self.parser.position(ptr);
-            let line = self
-                .parser
-                .get_string()
-                .lines()
-                .skip(position.row - 1)
-                .take(1)
-                .collect();
+        self.trim_front()
+            .next_token()
+            .or_else(|(error_type, cursor)| {
+                let position = self.parser.position(cursor);
+                let line = self
+                    .parser
+                    .get_string()
+                    .lines()
+                    .skip(position.row - 1)
+                    .take(1)
+                    .collect();
 
-            Err(JsonParseError {
-                line,
-                position,
-                error_type,
+                Err(JsonParseError {
+                    line,
+                    position,
+                    error_type,
+                })
             })
-        })
     }
 
     /// try parsing next token.
@@ -195,7 +198,7 @@ impl JsonLexer {
                 Some(Json::QString(key)) => {
                     if hashmap.contains_key(&key) {
                         // for better error message.
-                        self.parser.pointer -= key.len() - 1;
+                        self.parser.cursor -= key.len() - 1;
                         return Err(
                             self.error(JsonErrorType::DuplicateKeyError)
                         );
@@ -243,13 +246,13 @@ impl JsonLexer {
         self
     }
 
-    /// This is used only in case of erroring out (backing up ptr to error position).
+    /// This is used only in case of erroring out (backing up cursor to error position).
     pub fn untrim_front(&mut self) -> &mut Self {
-        self.parser.pointer -= 1;
+        self.parser.cursor -= 1;
 
         while let Some(ch) = self.parser.peek() {
-            if ch.is_whitespace() && self.parser.pointer > 0 {
-                self.parser.pointer -= 1;
+            if ch.is_whitespace() && self.parser.cursor > 0 {
+                self.parser.cursor -= 1;
             } else {
                 break;
             }
@@ -265,8 +268,8 @@ impl JsonLexer {
         Ok(self)
     }
 
-    fn error(&self, error_type: JsonErrorType) -> (JsonErrorType, Pointer) {
-        (error_type, self.parser.pointer)
+    fn error(&self, error_type: JsonErrorType) -> (JsonErrorType, Cursor) {
+        (error_type, self.parser.cursor)
     }
 }
 
@@ -352,7 +355,7 @@ impl PropertyLexer {
 }
 
 impl Iterator for PropertyLexer {
-    type Item = Result<Property, Pointer>;
+    type Item = Result<Property, Cursor>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let maybe_property = match self.parser.peek() {
@@ -362,15 +365,15 @@ impl Iterator for PropertyLexer {
                 .or_else(|| self.try_match(".length()", Property::Length))
                 .or_else(|| self.mapfunction())
                 .or_else(|| self.dotproperty()),
-            Some('[') => match self.parser.peek_at(self.parser.pointer + 1) {
+            Some('[') => match self.parser.peek_at(self.parser.cursor + 1) {
                 Some('"') => self.bracketproperty(),
                 Some('-' | '0'..='9') => self.arrayindex(),
-                _ => return Some(Err(self.parser.pointer + 2)),
+                _ => return Some(Err(self.parser.cursor + 2)),
             },
             None => return None,
-            _ => return Some(Err(self.parser.pointer + 1)),
+            _ => return Some(Err(self.parser.cursor + 1)),
         };
 
-        Some(maybe_property.ok_or(self.parser.pointer))
+        Some(maybe_property.ok_or(self.parser.cursor))
     }
 }
