@@ -85,31 +85,30 @@ impl Json {
             Property::Dot(s) | Property::Bracket(s) => match self {
                 Self::Object(hashmap) => hashmap
                     .get(s)
-                    .and_then(|token| Some(token.clone()))
+                    .cloned()
                     .ok_or(format!(" key doesn't exist: '{}'", s)),
                 _ => Err(self.invalid(property)),
             },
             Property::Index(i) => match self {
-                Self::Array(array) => array
-                    .get(*i as usize)
-                    .and_then(|token| Some(token.clone()))
-                    .ok_or(format!(
+                Self::Array(array) => {
+                    array.get(*i as usize).cloned().ok_or(format!(
                         " Invalid index {} (for array of len {})",
                         i,
                         array.len()
-                    )),
+                    ))
+                }
                 _ => Err(self.invalid(property)),
             },
             Property::Keys => match self {
                 Self::Object(hashmap) => Ok(Self::Array(
-                    hashmap.keys().map(|k| Json::QString(k.clone())).collect(),
+                    hashmap.keys().cloned().map(Json::QString).collect(),
                 )),
                 _ => Err(self.invalid(property)),
             },
             Property::Values => match self {
-                Self::Object(hashmap) => Ok(Self::Array(
-                    hashmap.values().map(|v| v.clone()).collect(),
-                )),
+                Self::Object(hashmap) => {
+                    Ok(Self::Array(hashmap.values().cloned().collect()))
+                }
                 _ => Err(self.invalid(property)),
             },
             Property::Length => match self {

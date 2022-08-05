@@ -32,6 +32,6 @@ impl JsonQuery {
 // required by mod `tests`.
 impl From<std::slice::Iter<'_, Property>> for JsonQuery {
     fn from(iter: std::slice::Iter<'_, Property>) -> Self {
-        Self(iter.map(|prop| prop.to_owned()).collect())
+        Self(iter.cloned().collect())
     }
 }

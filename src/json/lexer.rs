@@ -58,15 +58,15 @@ impl JsonLexer {
     /// try parsing [`Json::Null`](Json::Null).
     pub fn next_null(&mut self) -> ParseResult {
         self.parser
-            .match_string("null")
+            .string("null")
             .map(|_| Json::Null)
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
     /// try parsing [`Json::Boolean`](Json::Boolean).
     pub fn next_boolean(&mut self) -> ParseResult {
-        let parse_true = self.parser.match_string("true");
-        let parse_false = || self.parser.match_string("false");
+        let parse_true = self.parser.string("true");
+        let parse_false = || self.parser.string("false");
 
         parse_true
             .or_else(parse_false)
@@ -76,7 +76,7 @@ impl JsonLexer {
 
     /// try parsing [`Json::Number`](Json::Number).
     pub fn next_number(&mut self) -> ParseResult {
-        let maybe_float = self.parser.parse_int().map(|n| n as f32);
+        let maybe_float = self.parser.int().map(|n| n as f32);
 
         let total_digits = |mut n: i32| -> i32 {
             let mut digits = 0;
@@ -90,12 +90,12 @@ impl JsonLexer {
         let maybe_decimal = maybe_float.and_then(|f| {
             // parse decimal point.
             self.parser
-                .match_char('.')
+                .byte('.')
                 // parse leading decimal zeroes.
                 .map(|_| self.parser.match_while(|&ch| ch == '0').len() as i32)
                 // parse decimal number.
                 .and_then(|total_zeroes| {
-                    self.parser.parse_int().and_then(|number| {
+                    self.parser.int().and_then(|number| {
                         if number >= 0 {
                             let digits = total_digits(number) + total_zeroes;
                             let decimal = number as f32 / 10f32.powi(digits);
@@ -114,14 +114,14 @@ impl JsonLexer {
             // if 'e' or 'E' parsed, then try parsing '[sign]int'.
             if self
                 .parser
-                .match_char('e')
-                .or_else(|| self.parser.match_char('E'))
+                .byte('e')
+                .or_else(|| self.parser.byte('E'))
                 .is_some()
             {
-                let exponent = if self.parser.match_char('+').is_some() {
-                    self.parser.parse_uint().map(|n| n as i32)
+                let exponent = if self.parser.byte('+').is_some() {
+                    self.parser.uint().map(|n| n as i32)
                 } else {
-                    self.parser.parse_int()
+                    self.parser.int()
                 };
 
                 exponent.and_then(|exp| format!("{}e{}", f, exp).parse().ok())
@@ -139,7 +139,7 @@ impl JsonLexer {
 
     /// try parsing [`Json::QString`](Json::QString).
     pub fn next_qstring(&mut self) -> ParseResult {
-        self.match_char('"')?;
+        self.byte('"')?;
 
         let mut escaped = false;
         let string = self.parser.match_while(|&ch| {
@@ -150,12 +150,12 @@ impl JsonLexer {
             true
         });
 
-        self.match_char('"').and_then(|_| Ok(Json::QString(string)))
+        self.byte('"').and(Ok(Json::QString(string)))
     }
 
     /// try parsing [`Json::Array`](Json::Array).
     pub fn next_array(&mut self) -> ParseResult {
-        self.match_char('[')?;
+        self.byte('[')?;
 
         let mut array = Vec::new();
         if self
@@ -165,7 +165,7 @@ impl JsonLexer {
             .is_ok()
         {
             // try parsing token, only if comma present.
-            while self.trim_front().match_char(',').is_ok() {
+            while self.trim_front().byte(',').is_ok() {
                 self.trim_front()
                     .next_token()
                     .map(|token| array.push(token))
@@ -177,20 +177,17 @@ impl JsonLexer {
             }
         }
 
-        self.trim_front()
-            .match_char(']')
-            .and_then(|_| Ok(Json::Array(array)))
+        self.trim_front().byte(']').and(Ok(Json::Array(array)))
     }
 
     /// try parsing [`Json::Object`](Json::Object).
     pub fn next_object(&mut self) -> ParseResult {
-        self.match_char('{')?;
+        self.byte('{')?;
 
         let mut hashmap = std::collections::HashMap::new();
         let mut string_key = String::new();
 
         let mut json_key = self.trim_front().next_qstring().ok();
-
         while {
             // unwrap Json key -> string key.
             // error out if 'string_key' already present in the hashmap.
@@ -211,7 +208,7 @@ impl JsonLexer {
         } {
             // try parsing 'colon', error out if fails.
             self.trim_front()
-                .match_char(':')?
+                .byte(':')?
                 .trim_front()
                 // try parsing 'Json', error out if fails..
                 .next_token()
@@ -219,24 +216,19 @@ impl JsonLexer {
                 .map(|token| hashmap.insert(string_key.clone(), token))?;
 
             // try parsing json_key only if comma parsed.
-            json_key = if self.trim_front().match_char(',').is_ok() {
+            json_key = if self.trim_front().byte(',').is_ok() {
                 // comma needs to be followed by a string.
-                self.trim_front()
-                    .next_qstring()
-                    .map(|token| Some(token))
-                    .or_else(|_| {
-                        Err(self
-                            .untrim_front()
-                            .error(JsonErrorType::TrailingCommaError))
-                    })?
+                self.trim_front().next_qstring().map(Some).or_else(|_| {
+                    Err(self
+                        .untrim_front()
+                        .error(JsonErrorType::TrailingCommaError))
+                })?
             } else {
                 None
             };
         }
 
-        self.trim_front()
-            .match_char('}')
-            .and_then(|_| Ok(Json::Object(hashmap)))
+        self.trim_front().byte('}').and(Ok(Json::Object(hashmap)))
     }
 
     // TODO: use some helper function for triming whitespace characters, instead
@@ -261,9 +253,9 @@ impl JsonLexer {
         self
     }
 
-    fn match_char(&mut self, c: char) -> Result<&mut Self, ParseError> {
+    fn byte(&mut self, c: char) -> Result<&mut Self, ParseError> {
         self.parser
-            .match_char(c)
+            .byte(c)
             .ok_or(self.error(JsonErrorType::SyntaxError))?;
         Ok(self)
     }
@@ -286,12 +278,12 @@ impl PropertyLexer {
 
     #[inline(always)]
     pub fn try_match(&mut self, s: &str, t: Property) -> Option<Property> {
-        self.parser.match_string(s).and_then(|_| Some(t))
+        self.parser.string(s).and(Some(t))
     }
 
     /// try parsing [`Property::Dot`](Property::Dot).
     pub fn dotproperty(&mut self) -> Option<Property> {
-        self.parser.match_char('.')?;
+        self.parser.byte('.')?;
 
         let string = self.parser.match_while(|&ch| ch != '.' && ch != '[');
         if string.is_empty() {
@@ -303,7 +295,7 @@ impl PropertyLexer {
 
     /// try parsing [`Property::Bracket`](Property::Bracket).
     pub fn bracketproperty(&mut self) -> Option<Property> {
-        self.parser.match_string("[\"")?;
+        self.parser.string("[\"")?;
 
         let string = self.parser.match_while(|&ch| ch != '"');
         if string.is_empty() {
@@ -311,24 +303,22 @@ impl PropertyLexer {
         }
 
         self.parser
-            .match_string("\"]")
-            .and_then(|_| Some(Property::Bracket(string)))
+            .string("\"]")
+            .and(Some(Property::Bracket(string)))
     }
 
     /// try parsing [`Property::Index`](Property::Index).
     pub fn arrayindex(&mut self) -> Option<Property> {
-        self.parser.match_char('[')?;
+        self.parser.byte('[')?;
 
-        self.parser.parse_int().and_then(|number| {
-            self.parser
-                .match_char(']')
-                .and_then(|_| Some(Property::Index(number)))
+        self.parser.int().and_then(|number| {
+            self.parser.byte(']').and(Some(Property::Index(number)))
         })
     }
 
     /// try parsing [`Property::Map(JsonQuery)`](Property::Map).
     pub fn mapfunction(&mut self) -> Option<Property> {
-        self.parser.match_string(".map(")?;
+        self.parser.string(".map(")?;
 
         let mut depth = 0;
         let query_string = self.parser.match_while(|&ch| match ch {
@@ -347,9 +337,7 @@ impl PropertyLexer {
         });
 
         JsonQuery::new(&query_string).ok().and_then(|query| {
-            self.parser
-                .match_char(')')
-                .and_then(|_| Some(Property::Map(query)))
+            self.parser.byte(')').and(Some(Property::Map(query)))
         })
     }
 }

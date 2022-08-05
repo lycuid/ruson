@@ -51,7 +51,7 @@ impl Parser {
         string
     }
 
-    pub fn match_char(&mut self, x: char) -> Option<char> {
+    pub fn byte(&mut self, x: char) -> Option<char> {
         if let Some(&ch) = self.peek() {
             if x == ch {
                 self.cursor += 1;
@@ -61,7 +61,7 @@ impl Parser {
         None
     }
 
-    pub fn match_string(&mut self, ys: &str) -> Option<String> {
+    pub fn string(&mut self, ys: &str) -> Option<String> {
         let mut cs = ys.chars();
         let mut next_index: usize = self.cursor;
 
@@ -78,14 +78,14 @@ impl Parser {
         Some(ys.into())
     }
 
-    pub fn parse_uint(&mut self) -> Option<u32> {
+    pub fn uint(&mut self) -> Option<u32> {
         self.match_while(|&ch| ch.is_digit(10)).parse().ok()
     }
 
-    pub fn parse_int(&mut self) -> Option<i32> {
-        let mul = self.match_char('-').and(Some(-1)).unwrap_or(1);
+    pub fn int(&mut self) -> Option<i32> {
+        let mul = self.byte('-').and(Some(-1)).unwrap_or(1);
 
-        self.parse_uint().and_then(|n| Some(n as i32 * mul))
+        self.uint().and_then(|n| Some(n as i32 * mul))
     }
 
     pub fn get_string(&self) -> String {

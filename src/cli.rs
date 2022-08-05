@@ -36,9 +36,8 @@ impl CliOption {
         let mut argparser = Parser::new(&arg);
         self.flag
             .long
-            .and_then(|long| argparser.match_string(long))
-            .and_then(|_| argparser.match_char('='))
-            .or(None)
+            .and_then(|long| argparser.string(long))
+            .and(argparser.byte('='))
             .and_then(|_| {
                 Some(argparser.stack[argparser.cursor..].iter().collect())
             })
