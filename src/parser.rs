@@ -42,7 +42,7 @@ impl Parser {
         self.stack.get(cursor)
     }
 
-    pub fn match_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
+    pub fn parse_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
         let string: String = self.stack[self.cursor..]
             .iter()
             .take_while(|&ch| (f)(ch))
@@ -51,7 +51,7 @@ impl Parser {
         string
     }
 
-    pub fn byte(&mut self, x: char) -> Option<char> {
+    pub fn parse_byte(&mut self, x: char) -> Option<char> {
         if let Some(&ch) = self.peek() {
             if x == ch {
                 self.cursor += 1;
@@ -61,10 +61,9 @@ impl Parser {
         None
     }
 
-    pub fn string(&mut self, ys: &str) -> Option<String> {
+    pub fn parse_string(&mut self, ys: &str) -> Option<String> {
         let mut cs = ys.chars();
         let mut next_index: usize = self.cursor;
-
         while let Some(c) = cs.next() {
             if let Some(&x) = self.stack.get(next_index) {
                 if c != x {
@@ -74,24 +73,24 @@ impl Parser {
             next_index += 1;
         }
         self.cursor = next_index;
-
         Some(ys.into())
     }
 
-    pub fn uint(&mut self) -> Option<u32> {
-        self.match_while(|&ch| ch.is_digit(10)).parse().ok()
+    pub fn parse_uint(&mut self) -> Option<u32> {
+        self.parse_while(|&ch| ch.is_digit(10)).parse().ok()
     }
 
-    pub fn int(&mut self) -> Option<i32> {
-        let mul = self.byte('-').and(Some(-1)).unwrap_or(1);
-
-        self.uint().and_then(|n| Some(n as i32 * mul))
+    pub fn parse_int(&mut self) -> Option<i32> {
+        let mul = self.parse_byte('-').and(Some(-1)).unwrap_or(1);
+        self.parse_uint().and_then(|n| Some(n as i32 * mul))
     }
 
+    #[inline]
     pub fn get_string(&self) -> String {
         self.stack.iter().collect()
     }
 
+    #[inline]
     pub fn position(&self, cursor: Cursor) -> Position {
         let string: String = self.stack.iter().take(cursor).collect();
 

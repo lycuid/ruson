@@ -1,7 +1,8 @@
 use crate::cli::*;
 use std::collections::HashMap;
 
-fn setupcli(cli: &mut Cli) {
+fn create_cli(name: &'static str) -> Cli {
+    let mut cli = Cli::new(name);
     cli.add_flag(CliFlag {
         short: "-h",
         long: Some("--help"),
@@ -62,12 +63,12 @@ fn setupcli(cli: &mut Cli) {
             description: vec![],
         },
     });
+    cli
 }
 
 #[test]
 fn success_cli() {
-    let mut cli = Cli::new("name");
-    setupcli(&mut cli);
+    let cli = create_cli(env!("CARGO_PKG_NAME"));
 
     let mut flags: Vec<String> = vec![];
     let mut options: HashMap<&str, String> = HashMap::new();

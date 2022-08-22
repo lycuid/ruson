@@ -26,6 +26,7 @@ impl fmt::Display for Property {
             Self::Dot(s) => write!(f, ".{}", s),
             Self::Bracket(s) => write!(f, "[\"{}\"]", s),
             Self::Index(i) => write!(f, "[{}]", i),
+            Self::Map(_) => write!(f, ".map()"),
             _ => write!(f, "{}", format!(".{:?}()", self).to_ascii_lowercase()),
         }
     }
@@ -75,21 +76,25 @@ impl Json {
         }
     }
 
-    #[inline(always)]
-    fn invalid(&self, prop: &Property) -> String {
-        format!(" {}, found '{}' instead.", prop.invalid(), self.variant())
-    }
-
-    pub fn consume(&mut self, property: &Property) -> Result<&Self, String> {
+    #[inline]
+    pub fn update(&mut self, property: &Property) -> Result<&Self, String> {
+        macro_rules! match_only {
+            ($($pattern:pat => $expr:expr),*) => {
+                match self {
+                    $($pattern => $expr),*,
+                    _ => Err(format!(" {}, found '{}' instead.",
+                                     property.invalid(), self.variant())),
+                }
+            }
+        }
         *self = match property {
-            Property::Dot(s) | Property::Bracket(s) => match self {
+            Property::Dot(s) | Property::Bracket(s) => match_only! {
                 Self::Object(hashmap) => hashmap
                     .get(s)
                     .cloned()
-                    .ok_or(format!(" key doesn't exist: '{}'", s)),
-                _ => Err(self.invalid(property)),
+                    .ok_or(format!(" key doesn't exist: '{}'", s))
             },
-            Property::Index(i) => match self {
+            Property::Index(i) => match_only! {
                 Self::Array(array) => {
                     array.get(*i as usize).cloned().ok_or(format!(
                         " Invalid index {} (for array of len {})",
@@ -97,33 +102,28 @@ impl Json {
                         array.len()
                     ))
                 }
-                _ => Err(self.invalid(property)),
             },
-            Property::Keys => match self {
+            Property::Keys => match_only! {
                 Self::Object(hashmap) => Ok(Self::Array(
-                    hashmap.keys().cloned().map(Json::QString).collect(),
-                )),
-                _ => Err(self.invalid(property)),
+                    hashmap.keys().cloned().map(Json::QString).collect()
+                ))
             },
-            Property::Values => match self {
+            Property::Values => match_only! {
                 Self::Object(hashmap) => {
                     Ok(Self::Array(hashmap.values().cloned().collect()))
                 }
-                _ => Err(self.invalid(property)),
             },
-            Property::Length => match self {
+            Property::Length => match_only! {
                 Self::Array(array) => Ok(Self::Number(array.len() as f32)),
-                Self::QString(string) => Ok(Self::Number(string.len() as f32)),
-                _ => Err(self.invalid(property)),
+                Self::QString(string) => Ok(Self::Number(string.len() as f32))
             },
-            Property::Map(query) => match self {
+            Property::Map(query) => match_only! {
                 Self::Array(array) => Ok(Self::Array(
                     array
                         .iter_mut()
                         .map(|token| token.apply(query))
                         .collect::<Result<Vec<Json>, String>>()?,
-                )),
-                _ => Err(self.invalid(property)),
+                ))
             },
         }?;
         Ok(self)
@@ -132,11 +132,11 @@ impl Json {
     /// This is used for extracting a `Json` value that matches the given
     /// [`JsonQuery`](JsonQuery), from the current object.
     pub fn apply(&self, query: &JsonQuery) -> Result<Self, String> {
-        let mut token = self.clone();
+        let mut json = self.clone();
         for property in query.properties() {
-            token.consume(&property)?;
+            json.update(&property)?;
         }
-        Ok(token)
+        Ok(json)
     }
 }
 

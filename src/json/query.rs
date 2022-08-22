@@ -6,7 +6,7 @@ use super::{
 };
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct JsonQuery(Vec<Property>);
+pub struct JsonQuery(pub Vec<Property>);
 
 impl JsonQuery {
     pub fn new(s: &str) -> Result<Self, JsonQueryError> {
@@ -26,12 +26,5 @@ impl JsonQuery {
 
     pub fn properties<'a>(&'a self) -> std::slice::Iter<'a, Property> {
         self.0.iter()
-    }
-}
-
-// required by mod `tests`.
-impl From<std::slice::Iter<'_, Property>> for JsonQuery {
-    fn from(iter: std::slice::Iter<'_, Property>) -> Self {
-        Self(iter.cloned().collect())
     }
 }

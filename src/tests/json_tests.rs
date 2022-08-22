@@ -1,9 +1,20 @@
 use crate::json::{error::JsonErrorType, lexer::JsonLexer, token::Json};
 
+macro_rules! json {
+    ()                           => { Json::Null };
+    (true)                       => { Json::Boolean(true) };
+    (false)                      => { Json::Boolean(false) };
+    ($str:literal)               => { Json::QString($str.into()) };
+    ($($item:expr),*)            => { Json::Array(vec![$($item),*]) };
+    ($($k:literal => $v:expr),*) => {
+        Json::Object(std::collections::HashMap::from([$(($k.into(), $v)),*]))
+    };
+}
+
 #[test]
 fn success_null() {
     let mut json_lexer = JsonLexer::new("null");
-    assert_eq!(json_lexer.next_null().unwrap(), Json::Null);
+    assert_eq!(json_lexer.consume_null().unwrap(), json!());
 }
 
 #[test]
@@ -11,7 +22,7 @@ fn error_null() {
     let mut json_lexer: JsonLexer;
     for xs in ["Null", "NULL"].iter() {
         json_lexer = JsonLexer::new(xs);
-        match &json_lexer.next_null() {
+        match &json_lexer.consume_null() {
             Ok(_) => assert!(false),
             Err((ref error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -23,10 +34,10 @@ fn error_null() {
 #[test]
 fn success_bool() {
     let mut json_lexer = JsonLexer::new("true");
-    assert_eq!(json_lexer.next_boolean().unwrap(), Json::Boolean(true));
+    assert_eq!(json_lexer.consume_boolean().unwrap(), json!(true));
 
     let mut json_lexer = JsonLexer::new("false");
-    assert_eq!(json_lexer.next_boolean().unwrap(), Json::Boolean(false));
+    assert_eq!(json_lexer.consume_boolean().unwrap(), json!(false));
 }
 
 #[test]
@@ -34,7 +45,7 @@ fn error_bool() {
     let mut json_lexer: JsonLexer;
     for xs in ["False", "True"].iter() {
         json_lexer = JsonLexer::new(xs);
-        match &json_lexer.next_boolean() {
+        match &json_lexer.consume_boolean() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -65,7 +76,7 @@ fn success_number() {
     .iter()
     {
         json_lexer = JsonLexer::new(xs);
-        assert_eq!(json_lexer.next_number().unwrap(), *j);
+        assert_eq!(json_lexer.consume_number().unwrap(), *j);
     }
 }
 
@@ -83,7 +94,7 @@ fn error_number() {
     .iter()
     {
         json_lexer = JsonLexer::new(number);
-        match &json_lexer.next_number() {
+        match &json_lexer.consume_number() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -96,24 +107,18 @@ fn error_number() {
 fn success_string() {
     let mut json_lexer: JsonLexer;
     for (xs, j) in [
-        (r#""string""#, Json::QString("string".into())),
-        (
-            r#""string with spaces""#,
-            Json::QString("string with spaces".into()),
-        ),
-        (
-            r#""string with 'quotes'""#,
-            Json::QString("string with 'quotes'".into()),
-        ),
+        (r#""string""#, json!("string")),
+        (r#""string with spaces""#, json!("string with spaces")),
+        (r#""string with 'quotes'""#, json!("string with 'quotes'")),
         (
             r#""string with \"escaped double quotes\"""#,
-            Json::QString("string with \\\"escaped double quotes\\\"".into()),
+            json!("string with \\\"escaped double quotes\\\""),
         ),
     ]
     .iter()
     {
         json_lexer = JsonLexer::new(xs);
-        assert_eq!(json_lexer.next_qstring().unwrap(), *j);
+        assert_eq!(json_lexer.consume_qstring().unwrap(), *j);
     }
 }
 
@@ -122,7 +127,7 @@ fn error_string() {
     let mut json_lexer: JsonLexer;
     for string in [r#"klasd"#, r#""#].iter() {
         json_lexer = JsonLexer::new(string);
-        match &json_lexer.next_qstring() {
+        match &json_lexer.consume_qstring() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -136,13 +141,8 @@ fn success_array() {
     let xs = r#"["string", null, 1.03, true]"#;
     let mut json_lexer = JsonLexer::new(xs);
     assert_eq!(
-        json_lexer.next_array().unwrap(),
-        Json::Array(vec![
-            Json::QString("string".into()),
-            Json::Null,
-            Json::Number(1.03),
-            Json::Boolean(true)
-        ])
+        json_lexer.consume_array().unwrap(),
+        json![json!("string"), json!(), Json::Number(1.03), json!(true)]
     );
 }
 
@@ -161,7 +161,7 @@ fn error_array() {
     .iter()
     {
         json_lexer = JsonLexer::new(xs);
-        match &json_lexer.next_array() {
+        match &json_lexer.consume_array() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };
@@ -177,13 +177,15 @@ fn success_object() {
         "key4": true
     }"#;
     let mut json_lexer = JsonLexer::new(xs);
-
-    let mut map = std::collections::HashMap::new();
-    map.insert("key1".into(), Json::QString("string".into()));
-    map.insert("key2".into(), Json::Null);
-    map.insert("key3".into(), Json::Number(1.03));
-    map.insert("key4".into(), Json::Boolean(true));
-    assert_eq!(json_lexer.next_object().unwrap(), Json::Object(map));
+    assert_eq!(
+        json_lexer.consume_object().unwrap(),
+        json! {
+            "key1" => json!("string"),
+            "key2" => json!(),
+            "key3" => Json::Number(1.03),
+            "key4" => json!(true)
+        }
+    );
 }
 
 #[test]
@@ -224,7 +226,7 @@ fn error_object() {
     .iter()
     {
         json_lexer = JsonLexer::new(xs);
-        match &json_lexer.next_object() {
+        match &json_lexer.consume_object() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };
