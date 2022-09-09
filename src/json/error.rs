@@ -2,7 +2,7 @@
 //! for well formatted error messages.
 use crate::{
     error::ErrorString,
-    parser::{Cursor, Position},
+    lexer::{Cursor, Position},
 };
 
 #[derive(Debug, PartialEq)]

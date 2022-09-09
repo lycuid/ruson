@@ -1,7 +1,7 @@
 //! list of properties (chronological) needed to extract sub tree from `json`.
 use super::{
     error::{JsonQueryError, JsonQueryErrorType},
-    lexer::PropertyLexer,
+    parser::PropertyParser,
     token::Property,
 };
 
@@ -11,7 +11,7 @@ pub struct JsonQuery(pub Vec<Property>);
 impl JsonQuery {
     pub fn new(s: &str) -> Result<Self, JsonQueryError> {
         let mut properties = Vec::new();
-        for maybe_property in PropertyLexer::new(s) {
+        for maybe_property in PropertyParser::new(s) {
             let property = maybe_property.or_else(|cursor| {
                 Err(JsonQueryError {
                     line: s.into(),

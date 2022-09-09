@@ -1,4 +1,4 @@
-use crate::json::{error::JsonErrorType, lexer::JsonLexer, token::Json};
+use crate::json::{error::JsonErrorType, parser::JsonParser, token::Json};
 
 macro_rules! json {
     ()                           => { Json::Null };
@@ -13,16 +13,16 @@ macro_rules! json {
 
 #[test]
 fn success_null() {
-    let mut json_lexer = JsonLexer::new("null");
-    assert_eq!(json_lexer.consume_null().unwrap(), json!());
+    let mut json_parser = JsonParser::new("null");
+    assert_eq!(json_parser.parse_null().unwrap(), json!());
 }
 
 #[test]
 fn error_null() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for xs in ["Null", "NULL"].iter() {
-        json_lexer = JsonLexer::new(xs);
-        match &json_lexer.consume_null() {
+        json_parser = JsonParser::new(xs);
+        match &json_parser.parse_null() {
             Ok(_) => assert!(false),
             Err((ref error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -33,19 +33,19 @@ fn error_null() {
 
 #[test]
 fn success_bool() {
-    let mut json_lexer = JsonLexer::new("true");
-    assert_eq!(json_lexer.consume_boolean().unwrap(), json!(true));
+    let mut json_parser = JsonParser::new("true");
+    assert_eq!(json_parser.parse_boolean().unwrap(), json!(true));
 
-    let mut json_lexer = JsonLexer::new("false");
-    assert_eq!(json_lexer.consume_boolean().unwrap(), json!(false));
+    let mut json_parser = JsonParser::new("false");
+    assert_eq!(json_parser.parse_boolean().unwrap(), json!(false));
 }
 
 #[test]
 fn error_bool() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for xs in ["False", "True"].iter() {
-        json_lexer = JsonLexer::new(xs);
-        match &json_lexer.consume_boolean() {
+        json_parser = JsonParser::new(xs);
+        match &json_parser.parse_boolean() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -56,7 +56,7 @@ fn error_bool() {
 
 #[test]
 fn success_number() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for (xs, j) in [
         ("10", Json::Number(10.0)),
         ("-91", Json::Number(-91.0)),
@@ -75,14 +75,14 @@ fn success_number() {
     ]
     .iter()
     {
-        json_lexer = JsonLexer::new(xs);
-        assert_eq!(json_lexer.consume_number().unwrap(), *j);
+        json_parser = JsonParser::new(xs);
+        assert_eq!(json_parser.parse_number().unwrap(), *j);
     }
 }
 
 #[test]
 fn error_number() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for number in [
         ".10",
         "-.10",
@@ -93,8 +93,8 @@ fn error_number() {
     ]
     .iter()
     {
-        json_lexer = JsonLexer::new(number);
-        match &json_lexer.consume_number() {
+        json_parser = JsonParser::new(number);
+        match &json_parser.parse_number() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -105,7 +105,7 @@ fn error_number() {
 
 #[test]
 fn success_string() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for (xs, j) in [
         (r#""string""#, json!("string")),
         (r#""string with spaces""#, json!("string with spaces")),
@@ -117,17 +117,17 @@ fn success_string() {
     ]
     .iter()
     {
-        json_lexer = JsonLexer::new(xs);
-        assert_eq!(json_lexer.consume_qstring().unwrap(), *j);
+        json_parser = JsonParser::new(xs);
+        assert_eq!(json_parser.parse_qstring().unwrap(), *j);
     }
 }
 
 #[test]
 fn error_string() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for string in [r#"klasd"#, r#""#].iter() {
-        json_lexer = JsonLexer::new(string);
-        match &json_lexer.consume_qstring() {
+        json_parser = JsonParser::new(string);
+        match &json_parser.parse_qstring() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => {
                 assert_eq!(error_type, &JsonErrorType::SyntaxError)
@@ -139,16 +139,16 @@ fn error_string() {
 #[test]
 fn success_array() {
     let xs = r#"["string", null, 1.03, true]"#;
-    let mut json_lexer = JsonLexer::new(xs);
+    let mut json_parser = JsonParser::new(xs);
     assert_eq!(
-        json_lexer.consume_array().unwrap(),
+        json_parser.parse_array().unwrap(),
         json![json!("string"), json!(), Json::Number(1.03), json!(true)]
     );
 }
 
 #[test]
 fn error_array() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for (xs, err) in [
         // multple trailing commas.
         (r#"[1, 2, 3,]"#, JsonErrorType::TrailingCommaError),
@@ -160,8 +160,8 @@ fn error_array() {
     ]
     .iter()
     {
-        json_lexer = JsonLexer::new(xs);
-        match &json_lexer.consume_array() {
+        json_parser = JsonParser::new(xs);
+        match &json_parser.parse_array() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };
@@ -176,9 +176,9 @@ fn success_object() {
         "key3": 1.03,
         "key4": true
     }"#;
-    let mut json_lexer = JsonLexer::new(xs);
+    let mut json_parser = JsonParser::new(xs);
     assert_eq!(
-        json_lexer.consume_object().unwrap(),
+        json_parser.parse_object().unwrap(),
         json! {
             "key1" => json!("string"),
             "key2" => json!(),
@@ -190,7 +190,7 @@ fn success_object() {
 
 #[test]
 fn error_object() {
-    let mut json_lexer: JsonLexer;
+    let mut json_parser: JsonParser;
     for (xs, err) in [
         // single trailing comma.
         (
@@ -225,8 +225,8 @@ fn error_object() {
     ]
     .iter()
     {
-        json_lexer = JsonLexer::new(xs);
-        match &json_lexer.consume_object() {
+        json_parser = JsonParser::new(xs);
+        match &json_parser.parse_object() {
             Ok(_) => assert!(false),
             Err((error_type, _)) => assert_eq!(error_type, err),
         };

@@ -4,29 +4,11 @@ use super::{
     query::JsonQuery,
     token::{Json, Property},
 };
-use crate::parser::*;
+use crate::lexer::*;
 
-macro_rules! parser {
-    ($self:ident) => {
+macro_rules! lexer {
+    ($self:expr) => {
         $self.0
-    };
-}
-
-macro_rules! parse {
-    ($self:ident, byte{$char:expr}) => {
-        parser!($self).parse_byte($char)
-    };
-    ($self:ident, string{$string:expr}) => {
-        parser!($self).parse_string($string)
-    };
-    ($self:ident, int) => {
-        parser!($self).parse_int()
-    };
-    ($self:ident, uint) => {
-        parser!($self).parse_uint()
-    };
-    ($self:ident, $fn:expr) => {
-        parser!($self).parse_while($fn)
     };
 }
 
@@ -40,29 +22,29 @@ macro_rules! ndigits {
     }};
 }
 
-type JsonLexerResult<T> = Result<T, (JsonErrorType, usize)>;
+type JsonParseResult<T> = Result<T, (JsonErrorType, usize)>;
 
 #[derive(Debug)]
-pub struct JsonLexer(Parser);
+pub struct JsonParser(Lexer);
 
-impl JsonLexer /* Public */ {
+impl JsonParser /* Public */ {
     pub fn new(s: &str) -> Self {
-        Self(Parser::new(s))
+        Self(Lexer::new(s))
     }
 
-    pub fn tokenize(&mut self) -> Result<Json, JsonParseError> {
+    #[inline(always)]
+    pub fn parse(&mut self) -> Result<Json, JsonParseError> {
         self.trim_front()
-            .consume_any()
+            .parse_any()
             .or_else(|(error_type, cursor)| {
-                let position = parser!(self).position(cursor);
-                let line = parser!(self)
-                    .get_string()
-                    .lines()
-                    .skip(position.row - 1)
-                    .take(1)
-                    .collect();
+                let position = lexer!(self).position(cursor);
                 Err(JsonParseError {
-                    line,
+                    line: lexer!(self)
+                        .get_string()
+                        .lines()
+                        .skip(position.row - 1)
+                        .take(1)
+                        .collect(),
                     position,
                     error_type,
                 })
@@ -70,44 +52,50 @@ impl JsonLexer /* Public */ {
     }
 
     /// try parsing any token.
-    pub fn consume_any(&mut self) -> JsonLexerResult<Json> {
-        match parser!(self).peek() {
-            Some('-' | '0'..='9') => self.consume_number(),
-            Some('t' | 'f') => self.consume_boolean(),
-            Some('"') => self.consume_qstring(),
-            Some('n') => self.consume_null(),
-            Some('[') => self.consume_array(),
-            Some('{') => self.consume_object(),
+    #[inline(always)]
+    pub fn parse_any(&mut self) -> JsonParseResult<Json> {
+        match lexer!(self).peek() {
+            Some('-' | '0'..='9') => self.parse_number(),
+            Some('t' | 'f') => self.parse_boolean(),
+            Some('"') => self.parse_qstring(),
+            Some('n') => self.parse_null(),
+            Some('[') => self.parse_array(),
+            Some('{') => self.parse_object(),
             _ => return Err(self.error(JsonErrorType::SyntaxError)),
         }
     }
 
     /// try parsing [`Json::Null`](Json::Null).
-    pub fn consume_null(&mut self) -> JsonLexerResult<Json> {
-        parse!(self, string{"null"})
+    pub fn parse_null(&mut self) -> JsonParseResult<Json> {
+        lexer!(self)
+            .consume_string("null")
             .map(|_| Json::Null)
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
     /// try parsing [`Json::Boolean`](Json::Boolean).
-    pub fn consume_boolean(&mut self) -> JsonLexerResult<Json> {
-        parse!(self, string{"true"})
-            .or_else(|| parse!(self, string{"false"}))
+    pub fn parse_boolean(&mut self) -> JsonParseResult<Json> {
+        lexer!(self)
+            .consume_string("true")
+            .or_else(|| lexer!(self).consume_string("false"))
             .map(|parsed| Json::Boolean(parsed == "true"))
             .ok_or(self.error(JsonErrorType::SyntaxError))
     }
 
     /// try parsing [`Json::Number`](Json::Number).
-    pub fn consume_number(&mut self) -> JsonLexerResult<Json> {
-        let maybe_float = parse!(self, int).map(|n| n as f32);
+    pub fn parse_number(&mut self) -> JsonParseResult<Json> {
+        let maybe_float = lexer!(self).consume_int().map(|n| n as f32);
         let maybe_decimal = maybe_float.and_then(|f| {
             // parse decimal point.
-            parse!(self, byte{'.'})
+            lexer!(self)
+                .consume_byte('.')
                 // parse leading decimal zeroes.
-                .map(|_| parse!(self, |&ch| ch == '0').len() as i32)
+                .map(|_| {
+                    lexer!(self).consume_while(|&ch| ch == '0').len() as i32
+                })
                 // parse decimal number.
                 .and_then(|leading_zeroes| {
-                    parse!(self, int).and_then(|number| {
+                    lexer!(self).consume_int().and_then(|number| {
                         if number >= 0 {
                             let digits = ndigits!(number) + leading_zeroes;
                             let decimal = number as f32 / 10f32.powi(digits);
@@ -122,14 +110,15 @@ impl JsonLexer /* Public */ {
         });
         let maybe_exponent = maybe_decimal.and_then(|f| {
             // if 'e' or 'E' parsed, then try parsing '[sign]int'.
-            if parse!(self, byte{'e'})
-                .or_else(|| parse!(self, byte{'E'}))
+            if lexer!(self)
+                .consume_byte('e')
+                .or_else(|| lexer!(self).consume_byte('E'))
                 .is_some()
             {
-                let exponent = if parse!(self, byte{'+'}).is_some() {
-                    parse!(self, uint).map(|n| n as i32)
+                let exponent = if lexer!(self).consume_byte('+').is_some() {
+                    lexer!(self).consume_uint().map(|n| n as i32)
                 } else {
-                    parse!(self, int)
+                    lexer!(self).consume_int()
                 };
                 exponent.and_then(|exp| format!("{}e{}", f, exp).parse().ok())
             } else {
@@ -144,33 +133,33 @@ impl JsonLexer /* Public */ {
     }
 
     /// try parsing [`Json::QString`](Json::QString).
-    pub fn consume_qstring(&mut self) -> JsonLexerResult<Json> {
-        self.consume_byte('"')?;
+    pub fn parse_qstring(&mut self) -> JsonParseResult<Json> {
+        self.parse_byte('"')?;
         let mut escaped = false;
-        let string = parse!(self, |&ch| {
+        let string = lexer!(self).consume_while(|&ch| {
             if ch == '"' && !escaped {
                 return false;
             }
             escaped = ch == '\\';
             true
         });
-        self.consume_byte('"').and(Ok(Json::QString(string)))
+        self.parse_byte('"').and(Ok(Json::QString(string)))
     }
 
     /// try parsing [`Json::Array`](Json::Array).
-    pub fn consume_array(&mut self) -> JsonLexerResult<Json> {
-        self.consume_byte('[')?;
+    pub fn parse_array(&mut self) -> JsonParseResult<Json> {
+        self.parse_byte('[')?;
         let mut array = Vec::new();
         if self
             .trim_front()
-            .consume_any()
+            .parse_any()
             .map(|token| array.push(token))
             .is_ok()
         {
             // try parsing token, only if comma present.
-            while self.trim_front().consume_byte(',').is_ok() {
+            while self.trim_front().parse_byte(',').is_ok() {
                 self.trim_front()
-                    .consume_any()
+                    .parse_any()
                     .map(|token| array.push(token))
                     .or_else(|_| {
                         Err(self
@@ -180,24 +169,22 @@ impl JsonLexer /* Public */ {
             }
         }
         self.trim_front()
-            .consume_byte(']')
+            .parse_byte(']')
             .and(Ok(Json::Array(array)))
     }
 
     /// try parsing [`Json::Object`](Json::Object).
-    pub fn consume_object(&mut self) -> JsonLexerResult<Json> {
-        self.consume_byte('{')?;
+    pub fn parse_object(&mut self) -> JsonParseResult<Json> {
+        self.parse_byte('{')?;
         let mut hashmap = std::collections::HashMap::new();
         let mut string_key = String::new();
-        let mut json_key = self.trim_front().consume_qstring().ok();
+        let mut json_key = self.trim_front().parse_qstring().ok();
         while {
             // unwrap Json key -> string key.
-            // error out if 'string_key' already present in the hashmap.
             match json_key {
                 Some(Json::QString(key)) => {
                     if hashmap.contains_key(&key) {
-                        // for better error message.
-                        parser!(self).cursor -= key.len() - 1;
+                        lexer!(self).cursor -= key.len() - 1; // for better error message.
                         return Err(
                             self.error(JsonErrorType::DuplicateKeyError)
                         );
@@ -208,18 +195,15 @@ impl JsonLexer /* Public */ {
                 _ => false,
             }
         } {
-            // try parsing 'colon', error out if fails.
             self.trim_front()
-                .consume_byte(':')?
+                .parse_byte(':')?
                 .trim_front()
-                // try parsing 'Json', error out if fails..
-                .consume_any()
-                // insert 'key', 'Json' to hashmap if 'value' parsed.
+                .parse_any()
                 .map(|token| hashmap.insert(string_key.clone(), token))?;
-            // try parsing json_key only if comma parsed.
-            json_key = if self.trim_front().consume_byte(',').is_ok() {
+            // try parsing 'json_key' only if comma parsed.
+            json_key = if self.trim_front().parse_byte(',').is_ok() {
                 // comma needs to be followed by a string.
-                self.trim_front().consume_qstring().map(Some).or_else(|_| {
+                self.trim_front().parse_qstring().map(Some).or_else(|_| {
                     Err(self
                         .untrim_front()
                         .error(JsonErrorType::TrailingCommaError))
@@ -229,25 +213,25 @@ impl JsonLexer /* Public */ {
             };
         }
         self.trim_front()
-            .consume_byte('}')
+            .parse_byte('}')
             .and(Ok(Json::Object(hashmap)))
     }
 }
 
-impl JsonLexer /* Private */ {
-    // TODO: use some helper function for triming whitespace characters, instead
-    // of checking manually hardcoded characters.
+impl JsonParser /* Private */ {
+    #[inline]
     fn trim_front(&mut self) -> &mut Self {
-        parse!(self, |c| c.is_whitespace());
+        lexer!(self).consume_while(|c| c.is_whitespace());
         self
     }
 
     /// This is used only in case of erroring out (backing up cursor to error position).
+    #[inline]
     fn untrim_front(&mut self) -> &mut Self {
-        parser!(self).cursor -= 1;
-        while let Some(ch) = parser!(self).peek() {
-            if ch.is_whitespace() && parser!(self).cursor > 0 {
-                parser!(self).cursor -= 1;
+        lexer!(self).cursor -= 1;
+        while let Some(ch) = lexer!(self).peek() {
+            if ch.is_whitespace() && lexer!(self).cursor > 0 {
+                lexer!(self).cursor -= 1;
             } else {
                 break;
             }
@@ -256,51 +240,49 @@ impl JsonLexer /* Private */ {
     }
 
     #[inline]
-    fn consume_byte(&mut self, c: char) -> JsonLexerResult<&mut Self> {
-        parse!(self, byte { c })
+    fn parse_byte(&mut self, c: char) -> JsonParseResult<&mut Self> {
+        lexer!(self)
+            .consume_byte(c)
             .ok_or(self.error(JsonErrorType::SyntaxError))?;
         Ok(self)
     }
 
-    #[inline]
+    #[inline(always)]
     fn error(&self, error_type: JsonErrorType) -> (JsonErrorType, Cursor) {
-        (error_type, parser!(self).cursor)
+        (error_type, lexer!(self).cursor)
     }
 }
 
-pub struct PropertyLexer(Parser);
+pub struct PropertyParser(Lexer);
 
-impl PropertyLexer /* Public */ {
-    pub fn new(s: &str) -> Self {
-        Self(Parser::new(s))
-    }
+impl PropertyParser /* Public */ {
+    #[rustfmt::skip]
+    pub fn new(s: &str) -> Self { Self(Lexer::new(s)) }
 
-    pub fn consume_any(&mut self) -> Option<Result<Property, usize>> {
-        let maybe_property = match parser!(self).peek() {
+    pub fn parse_any(&mut self) -> Option<Result<Property, usize>> {
+        let maybe_property = match lexer!(self).peek() {
             Some('.') => self
                 .try_consume(".keys()", Property::Keys)
                 .or_else(|| self.try_consume(".values()", Property::Values))
                 .or_else(|| self.try_consume(".length()", Property::Length))
-                .or_else(|| self.consume_map_func())
-                .or_else(|| self.consume_dot_prop()),
-            Some('[') => {
-                match parser!(self).peek_at(parser!(self).cursor + 1) {
-                    Some('"') => self.consume_bracket_prop(),
-                    Some('-' | '0'..='9') => self.consume_array_index(),
-                    _ => return Some(Err(parser!(self).cursor + 2)),
-                }
-            }
+                .or_else(|| self.parse_map_func())
+                .or_else(|| self.parse_dot_prop()),
+            Some('[') => match lexer!(self).peek_at(lexer!(self).cursor + 1) {
+                Some('"') => self.parse_bracket_prop(),
+                Some('-' | '0'..='9') => self.parse_array_index(),
+                _ => return Some(Err(lexer!(self).cursor + 2)),
+            },
             None => return None,
-            _ => return Some(Err(parser!(self).cursor + 1)),
+            _ => return Some(Err(lexer!(self).cursor + 1)),
         };
-        Some(maybe_property.ok_or(parser!(self).cursor))
+        Some(maybe_property.ok_or(lexer!(self).cursor))
     }
 
     /// try parsing [`Property::Dot`](Property::Dot).
     #[inline(always)]
-    pub fn consume_dot_prop(&mut self) -> Option<Property> {
-        parse!(self, byte{'.'})?;
-        let prop = parse!(self, |&ch| !".[)".contains(ch));
+    pub fn parse_dot_prop(&mut self) -> Option<Property> {
+        lexer!(self).consume_byte('.')?;
+        let prop = lexer!(self).consume_while(|&ch| !".[)".contains(ch));
         if prop.is_empty() {
             return None;
         }
@@ -309,50 +291,57 @@ impl PropertyLexer /* Public */ {
 
     /// try parsing [`Property::Bracket`](Property::Bracket).
     #[inline(always)]
-    pub fn consume_bracket_prop(&mut self) -> Option<Property> {
-        parse!(self, string{"[\""})?;
-        let prop = parse!(self, |&ch| ch != '"');
+    pub fn parse_bracket_prop(&mut self) -> Option<Property> {
+        lexer!(self).consume_string("[\"")?;
+        let prop = lexer!(self).consume_while(|&ch| ch != '"');
         if prop.is_empty() {
             return None;
         }
-        parse!(self, string{"\"]"}).and(Some(Property::Bracket(prop)))
+        lexer!(self)
+            .consume_string("\"]")
+            .and(Some(Property::Bracket(prop)))
     }
 
     /// try parsing [`Property::Index`](Property::Index).
     #[inline(always)]
-    pub fn consume_array_index(&mut self) -> Option<Property> {
-        parse!(self, byte{'['})?;
-        parse!(self, int).and_then(|inner| {
-            parse!(self, byte{']'}).and(Some(Property::Index(inner)))
+    pub fn parse_array_index(&mut self) -> Option<Property> {
+        lexer!(self).consume_byte('[')?;
+        lexer!(self).consume_int().and_then(|num| {
+            lexer!(self)
+                .consume_byte(']')
+                .and(Some(Property::Index(num)))
         })
     }
 
     /// try parsing [`Property::Map(JsonQuery)`](Property::Map).
     #[inline(always)]
-    pub fn consume_map_func(&mut self) -> Option<Property> {
-        parse!(self, string{".map("})?;
+    pub fn parse_map_func(&mut self) -> Option<Property> {
+        lexer!(self).consume_string(".map(")?;
         let mut properties = vec![];
-        while let Some(maybe_property) = self.consume_any() {
+        while let Some(maybe_property) = self.parse_any() {
             if let Ok(property) = maybe_property {
                 properties.push(property);
             } else {
                 break;
             }
         }
-        parse!(self, byte{')'}).and(Some(Property::Map(JsonQuery(properties))))
+        lexer!(self)
+            .consume_byte(')')
+            .and(Some(Property::Map(JsonQuery(properties))))
     }
 }
 
-impl PropertyLexer /* Private */ {
+impl PropertyParser /* Private */ {
     #[inline(always)]
     fn try_consume(&mut self, s: &str, t: Property) -> Option<Property> {
-        parse!(self, string { s }).and(Some(t))
+        lexer!(self).consume_string(s).and(Some(t))
     }
 }
 
-impl Iterator for PropertyLexer {
+impl Iterator for PropertyParser {
     type Item = Result<Property, usize>;
+
     fn next(&mut self) -> Option<Self::Item> {
-        self.consume_any()
+        self.parse_any()
     }
 }

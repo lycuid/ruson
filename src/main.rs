@@ -3,7 +3,7 @@ use ruson::{
     error::RusonResult,
     json::{
         formatter::{Formatter, PrettyJson, RawJson, TableJson},
-        lexer::JsonLexer,
+        parser::JsonParser,
         query::JsonQuery,
         token::Json,
     },
@@ -62,9 +62,9 @@ fn main() -> Result<(), String> {
     }
     .unwrap_or_exit();
 
-    // tokenize json string.
-    let json_token = JsonLexer::new(&json_string)
-        .tokenize()
+    // parse json string.
+    let json_token = JsonParser::new(&json_string)
+        .parse()
         .unwrap_or_exit()
         .apply(&json_query)
         .unwrap_or_exit();

@@ -21,12 +21,12 @@ impl Position {
 }
 
 #[derive(Debug)]
-pub struct Parser {
+pub struct Lexer {
     pub stack: Stack,
     pub cursor: Cursor,
 }
 
-impl Parser {
+impl Lexer {
     pub fn new(s: &str) -> Self {
         Self {
             stack: s.chars().collect(),
@@ -34,15 +34,19 @@ impl Parser {
         }
     }
 
+    #[inline]
     pub fn peek(&self) -> Option<&char> {
         self.peek_at(self.cursor)
     }
 
+    #[inline]
     pub fn peek_at(&self, cursor: Cursor) -> Option<&char> {
         self.stack.get(cursor)
     }
 
-    pub fn parse_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
+    #[rustfmt::skip]
+    #[inline]
+    pub fn consume_while<F: FnMut(&char) -> bool>(&mut self, mut f: F) -> String {
         let string: String = self.stack[self.cursor..]
             .iter()
             .take_while(|&ch| (f)(ch))
@@ -51,7 +55,8 @@ impl Parser {
         string
     }
 
-    pub fn parse_byte(&mut self, x: char) -> Option<char> {
+    #[inline]
+    pub fn consume_byte(&mut self, x: char) -> Option<char> {
         if let Some(&ch) = self.peek() {
             if x == ch {
                 self.cursor += 1;
@@ -61,7 +66,8 @@ impl Parser {
         None
     }
 
-    pub fn parse_string(&mut self, ys: &str) -> Option<String> {
+    #[inline]
+    pub fn consume_string(&mut self, ys: &str) -> Option<String> {
         let mut cs = ys.chars();
         let mut next_index: usize = self.cursor;
         while let Some(c) = cs.next() {
@@ -76,13 +82,15 @@ impl Parser {
         Some(ys.into())
     }
 
-    pub fn parse_uint(&mut self) -> Option<u32> {
-        self.parse_while(|&ch| ch.is_digit(10)).parse().ok()
+    #[inline]
+    pub fn consume_uint(&mut self) -> Option<u32> {
+        self.consume_while(|&ch| ch.is_digit(10)).parse().ok()
     }
 
-    pub fn parse_int(&mut self) -> Option<i32> {
-        let mul = self.parse_byte('-').and(Some(-1)).unwrap_or(1);
-        self.parse_uint().and_then(|n| Some(n as i32 * mul))
+    #[inline]
+    pub fn consume_int(&mut self) -> Option<i32> {
+        let mul = self.consume_byte('-').and(Some(-1)).unwrap_or(1);
+        self.consume_uint().and_then(|n| Some(n as i32 * mul))
     }
 
     #[inline]

@@ -1,5 +1,5 @@
 //! Posix compliant command line argument parser and processor.
-use super::parser::Parser;
+use super::lexer::Lexer;
 
 pub type Lines = Vec<String>;
 
@@ -33,11 +33,11 @@ pub struct CliOption {
 impl CliOption {
     /// parse long option with syntax `--option=value` and return `value`.
     pub fn assoc_value(&self, arg: &str) -> Option<String> {
-        let mut argparser = Parser::new(&arg);
+        let mut argparser = Lexer::new(&arg);
         self.flag
             .long
-            .and_then(|long| argparser.parse_string(long))
-            .and_then(|_| argparser.parse_byte('='))
+            .and_then(|long| argparser.consume_string(long))
+            .and_then(|_| argparser.consume_byte('='))
             .and_then(|_| {
                 Some(argparser.stack[argparser.cursor..].iter().collect())
             })
